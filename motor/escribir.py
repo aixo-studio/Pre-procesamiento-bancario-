@@ -30,17 +30,18 @@ def controlar(movimientos: list[Movimiento], columnas: dict, datos: list, reglas
 def escribir_excel(movimientos: list[Movimiento], ruta: Path) -> None:
     """Recibe los movimientos y la ruta donde guardar.
     Escribe un Excel con una sola hoja, "Movimientos": el encabezado y las
-    cuatro columnas, con formato de fecha y de monto.
+    cuatro columnas, con formato de fecha y de monto. El Código se escribe como
+    texto, así "005" no se convierte en 5.
     """
     libro = Workbook()
     hoja = libro.active
     hoja.title = "Movimientos"
     # Encabezado en negrita.
-    hoja.append(["Fecha", "Concepto", "Descripción", "Monto"])
+    hoja.append(["Fecha", "Código", "Descripción", "Monto"])
     for celda in hoja[1]:
         celda.font = Font(bold=True)
     for movimiento in movimientos:
-        hoja.append([movimiento.fecha, movimiento.concepto, movimiento.descripcion,
+        hoja.append([movimiento.fecha, movimiento.codigo, movimiento.descripcion,
                      movimiento.monto_centavos / 100])
     # Formato: fecha dd/mm/aaaa y monto con separador de miles y dos decimales.
     for fecha, _, _, monto in hoja.iter_rows(min_row=2):

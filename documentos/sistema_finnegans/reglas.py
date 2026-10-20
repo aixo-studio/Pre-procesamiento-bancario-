@@ -7,7 +7,7 @@ ENCABEZADOS = ["Año - mes", "Codigo cuenta", "Cuenta", "Fecha", "Comprobante",
 
 FECHA = "Fecha"
 FORMATO_FECHA = None  # viene como fecha real de Excel, no como texto
-CONCEPTO = "Tipo de documento"
+CODIGO = "Tipo de documento"  # ej. Orden de pago, Recibo de Cobranzas
 DESCRIPCION = "Descripción"
 CREDITO = "Debe"   # plata que entra al banco
 DEBITO = "Haber"   # plata que sale del banco

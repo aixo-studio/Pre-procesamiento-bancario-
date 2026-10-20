@@ -8,7 +8,7 @@ ENCABEZADOS = ["Fecha", "Descripción", "Origen", "Débitos", "Créditos", "Grup
 
 FECHA = "Fecha"
 FORMATO_FECHA = None  # viene como fecha real de Excel, no como texto
-CONCEPTO = "Concepto"
+CODIGO = "Grupo de Conceptos"  # el grupo del movimiento, ej. 000901 - Impuestos
 DESCRIPCION = "Descripción"
 CREDITO = "Créditos"
 DEBITO = "Débitos"  # viene en positivo; el motor lo pone negativo

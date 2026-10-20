@@ -27,7 +27,7 @@ def encontrar_tabla(filas: list[list], encabezados: list[str],
                     seguidas: list[str] = None) -> tuple[dict, list]:
     """Recibe todas las filas del archivo y los encabezados que tiene que tener la tabla.
     Busca la fila que tiene todos esos encabezados y devuelve dos cosas:
-    - dónde está cada columna: {"Fecha": 0, "Concepto": 2, ...}
+    - dónde está cada columna: {"Fecha": 0, "Codigo": 3, ...}
     - las filas de abajo, cada una con su número de fila en el Excel original.
     Si no encuentra la fila de encabezados, frena con un error.
 

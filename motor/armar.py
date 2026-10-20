@@ -1,4 +1,4 @@
-"""Paso 3 del proceso: armar Fecha, Concepto, Descripción y Monto para cada fila.
+"""Paso 3 del proceso: armar Fecha, Código, Descripción y Monto para cada fila.
 
 Qué columna va a cada lugar lo dice el reglas.py de cada documento; acá solo
 están las reglas que son iguales para todos.
@@ -12,7 +12,7 @@ from decimal import Decimal
 class Movimiento:
     """Una fila del resultado: las cuatro columnas de la salida."""
     fecha: date
-    concepto: str
+    codigo: str  # el valor que identifica el tipo de movimiento, siempre como texto
     descripcion: str
     monto_centavos: int  # crédito positivo, débito negativo
 
@@ -27,6 +27,18 @@ def a_texto(valor) -> str:
     una celda vacía queda como texto vacío.
     """
     return "" if valor is None else str(valor)
+
+
+def a_codigo(valor, numero_fila: int) -> str:
+    """Recibe el valor de la celda del Código (y el número de fila, para avisar si falla).
+    Lo devuelve como texto, tal cual. Si viene como número, frena con un error:
+    un código como "005" guardado como número queda en 5 y ya no coincide con
+    nada. Rellenar los ceros sería adivinar.
+    """
+    if isinstance(valor, (int, float)):
+        raise ValueError(f"Fila {numero_fila}: el Código viene como número ({valor!r}), no como texto; "
+                         "los ceros de adelante se pudieron perder. Bajá el archivo de nuevo del banco, sin abrirlo y guardarlo en Excel.")
+    return a_texto(valor)
 
 
 def a_centavos(valor, numero_fila: int) -> int:
@@ -85,7 +97,7 @@ def armar_movimientos(columnas: dict, datos: list, reglas) -> list[Movimiento]:
             raise ValueError(f"Fila {numero_fila}: tiene que tener crédito o débito, uno solo.")
         movimientos.append(Movimiento(
             fecha=a_fecha(fila[columnas[reglas.FECHA]], reglas.FORMATO_FECHA, numero_fila),
-            concepto=a_texto(fila[columnas[reglas.CONCEPTO]]),
+            codigo=a_codigo(fila[columnas[reglas.CODIGO]], numero_fila),
             descripcion=a_texto(fila[columnas[reglas.DESCRIPCION]]),
             monto_centavos=credito - debito,
         ))

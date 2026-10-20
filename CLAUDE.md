@@ -8,7 +8,7 @@ commits y los push.
 
 Un programa en Python, sin IA, que recibe un documento crudo (el extracto de
 un banco o el libro del sistema financiero) y devuelve un Excel con cuatro
-columnas: Fecha, Concepto, Descripción y Monto.
+columnas: Fecha, Código, Descripción y Monto.
 
 Es la etapa 1 de la conciliación bancaria. Termina cuando cada documento del
 mes quedó convertido en la carpeta de salida. El cruce entre banco y sistema
@@ -166,11 +166,22 @@ en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
   `banco_galicia`, `banco_supervielle`, `sistema_finnegans`). Así la etapa 2
   sabe cuál es el banco y cuál el sistema.
 - Una sola hoja, "Movimientos".
-- Fila 1, el encabezado: Fecha · Concepto · Descripción · Monto. Debajo, un
-  movimiento por fila, en el orden del original.
-- Fecha: fecha real de Excel. Concepto y Descripción: texto (puede estar
-  vacío). Monto: número con dos decimales; crédito positivo, débito negativo.
-  En el sistema, Debe (entra al banco) es positivo y Haber negativo.
+- Fila 1, el encabezado: Fecha · Código · Descripción · Monto, igual en los
+  cuatro documentos. Debajo, un movimiento por fila, en el orden del original.
+- El Código es el valor puro de la columna que identifica el tipo de
+  movimiento en cada documento, sin mezclar nada. La etapa 2 lo usa para
+  reconocer los gastos bancarios con una lista por banco:
+
+      banco_bbva          Codigo               ej. 236
+      banco_galicia       Grupo de Conceptos   ej. 000901 - Impuestos
+      banco_supervielle   Concepto             ej. Impuesto Débitos y Créditos/DB
+      sistema_finnegans   Tipo de documento    ej. Orden de pago
+
+- Fecha: fecha real de Excel. Código y Descripción: texto (puede estar vacío).
+  El Código sale tal cual, con sus ceros adelante ("005", nunca 5); si en el
+  original viene como número, el archivo no se genera. Monto: número con dos
+  decimales; crédito positivo, débito negativo. En el sistema, Debe (entra al
+  banco) es positivo y Haber negativo.
 - Al leer el Monto, la etapa 2 lo pasa a centavos enteros redondeando, y
   compara y suma en centavos: un decimal leído de un Excel puede venir con
   un error mínimo (1500000.2499999 en vez de 1500000.25).
@@ -193,7 +204,8 @@ en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
 
 ## Documentación
 
-- README.md: qué es, cómo se usa, el mapa de carpetas y el mapa del flujo.
+- README.md: qué es, cómo se usa, el mapa de carpetas, el mapa del flujo y las
+  decisiones.
 - documentos/<documento>/README.md: cómo viene ese documento y cómo se convierte.
 - PENDIENTES.md: lo abierto, en orden de prioridad, y lo hecho con su fecha.
 - No dejar documentación desactualizada. Distinguir lo hecho de lo propuesto.

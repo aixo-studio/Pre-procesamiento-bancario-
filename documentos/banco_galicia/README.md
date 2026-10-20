@@ -21,9 +21,15 @@ Excel. Falta compararlo con uno bajado directo del banco (ver PENDIENTES.md).
 | Salida      | Sale de             | Regla                                                     |
 |-------------|---------------------|-----------------------------------------------------------|
 | Fecha       | Fecha               | Viene como fecha real de Excel.                           |
-| Concepto    | Concepto            | Tal cual: código y tipo de operación (`907268 - TRANSF INMED CP`). |
+| Código      | Grupo de Conceptos  | Tal cual (`000901 - Impuestos`).                          |
 | Descripción | Descripción         | Tal cual (`Transf Inmed Cp`).                             |
 | Monto       | Créditos y Débitos  | Crédito en positivo, débito en negativo.                  |
+
+**Por qué el Código sale de "Grupo de Conceptos" y no de "Concepto":** el
+Galicia agrupa sus operaciones en unos pocos grupos (Impuestos, Comisiones,
+Intereses, Transferencias…) y el grupo alcanza solo para reconocer los gastos
+bancarios en la etapa 2. El "Concepto" es mucho más detallado
+(`907268 - TRANSF INMED CP`) y casi lo mismo ya sale en la Descripción.
 
 ## Condiciones
 
@@ -33,22 +39,22 @@ Excel. Falta compararlo con uno bajado directo del banco (ver PENDIENTES.md).
   ninguno, el programa frena y dice qué fila es.
 - En las comisiones por depósito de cheque, la Descripción trae el número de
   cheque pegado (`Com. Deposito De Cheque      475`). Se copia tal cual.
-- No se usan: Origen, Grupo de Conceptos, Número de Terminal, Observaciones
-  Cliente, Número de Comprobante, Leyendas Adicionales 1 a 4, Tipo de
-  Movimiento y Saldo.
+- No se usan: Origen, Concepto, Número de Terminal, Observaciones Cliente,
+  Número de Comprobante, Leyendas Adicionales 1 a 4, Tipo de Movimiento y
+  Saldo.
 
 ## Ejemplo (datos inventados)
 
 Entra:
 
-| Fecha      | Descripción     | Débitos | Créditos | Concepto                  |
-|------------|-----------------|---------|----------|---------------------------|
-| 01/09/2026 | Transf Inmed Cp | 150000  | 0        | 907268 - TRANSF INMED CP  |
-| 02/09/2026 | Credito Prestamo| 0       | 800000   | 917133 - CREDITO PRESTAMO |
+| Fecha      | Descripción     | Débitos | Créditos | Grupo de Conceptos      | Concepto                  |
+|------------|-----------------|---------|----------|-------------------------|---------------------------|
+| 01/09/2026 | Transf Inmed Cp | 150000  | 0        | 000907 - Transferencias | 907268 - TRANSF INMED CP  |
+| 02/09/2026 | Credito Prestamo| 0       | 800000   | 000083 - Pagos          | 917133 - CREDITO PRESTAMO |
 
 Sale:
 
-| Fecha      | Concepto                  | Descripción      | Monto        |
-|------------|---------------------------|------------------|--------------|
-| 01/09/2026 | 907268 - TRANSF INMED CP  | Transf Inmed Cp  | −150.000,00  |
-| 02/09/2026 | 917133 - CREDITO PRESTAMO | Credito Prestamo | 800.000,00   |
+| Fecha      | Código                  | Descripción      | Monto        |
+|------------|-------------------------|------------------|--------------|
+| 01/09/2026 | 000907 - Transferencias | Transf Inmed Cp  | −150.000,00  |
+| 02/09/2026 | 000083 - Pagos          | Credito Prestamo | 800.000,00   |

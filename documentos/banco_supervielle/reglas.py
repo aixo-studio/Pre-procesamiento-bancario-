@@ -5,7 +5,7 @@ ENCABEZADOS = ["Fecha", "Hora", "Concepto", "Detalle", "Débito", "Crédito", "S
 
 FECHA = "Fecha"
 FORMATO_FECHA = "%d/%m/%Y"  # viene como texto: 30/09/2026
-CONCEPTO = "Concepto"
+CODIGO = "Concepto"  # el tipo de movimiento, ej. Impuesto Débitos y Créditos/DB
 DESCRIPCION = "Detalle"
 CREDITO = "Crédito"
 DEBITO = "Débito"  # viene en positivo; el motor lo pone negativo

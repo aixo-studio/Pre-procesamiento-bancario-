@@ -6,7 +6,7 @@ ENCABEZADOS = ["Fecha", "Fecha Valor", "Concepto", "Codigo", "Número Documento"
 
 FECHA = "Fecha"
 FORMATO_FECHA = "%d-%m-%Y"  # viene como texto: 30-09-2026
-CONCEPTO = "Concepto"
+CODIGO = "Codigo"  # el código del tipo de movimiento, ej. 236; viene como texto, con sus ceros
 DESCRIPCION = "Detalle"
 CREDITO = "Crédito"
 DEBITO = "Débito"  # viene en negativo; el motor lo toma sin signo

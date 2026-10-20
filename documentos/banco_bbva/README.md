@@ -20,9 +20,15 @@ Llega como `.xls` (el formato viejo de Excel), con una sola hoja:
 | Salida      | Sale de          | Regla                                                  |
 |-------------|------------------|--------------------------------------------------------|
 | Fecha       | Fecha            | Viene como texto `30-09-2026`; se pasa a fecha real.   |
-| Concepto    | Concepto         | Tal cual.                                              |
+| Código      | Codigo           | Tal cual, como texto y con sus ceros (`005`, `236`).   |
 | Descripción | Detalle          | Tal cual. Muchas veces viene vacía y queda vacía.      |
 | Monto       | Crédito y Débito | Crédito en positivo, débito en negativo.               |
+
+**Por qué el Código sale de "Codigo" y no de "Concepto":** "Codigo" es un
+número corto que identifica el tipo de movimiento (por ejemplo `236` es el
+IVA) y alcanza solo para reconocer los gastos bancarios en la etapa 2. El
+"Concepto" mezcla el tipo con otros datos (`TRANSFERENCI 20111111112` trae el
+CUIT), así que no sirve para comparar contra una lista.
 
 ## Condiciones
 
@@ -30,22 +36,26 @@ Llega como `.xls` (el formato viejo de Excel), con una sola hoja:
   negativo, así no depende de cómo venga.
 - Cada fila tiene crédito o débito, uno solo. Si una fila trae los dos, o
   ninguno, el programa frena y dice qué fila es.
-- No se usan: Fecha Valor, Codigo, Número Documento, Oficina y la columna sin
-  nombre.
+- "Codigo" tiene que venir como texto. Si viene como número (pasa si alguien
+  abre el archivo en Excel y lo vuelve a guardar), `005` puede haber quedado
+  en `5`: el programa frena y pide bajar el archivo de nuevo del banco.
+- No se usan: Fecha Valor, Concepto, Número Documento, Oficina y la columna
+  sin nombre. El texto del Concepto (con el CUIT o la referencia del cheque)
+  no sale en el resultado.
 - El número de cheque viene en "Número Documento" y no sale en el resultado.
 
 ## Ejemplo (datos inventados)
 
 Entra:
 
-| Fecha      | Concepto                     | Número Documento | Crédito | Débito   | Detalle          |
-|------------|------------------------------|------------------|---------|----------|------------------|
-| 30-09-2026 | CH/CLEAR.48  000000000001    | 90000001         |         | -150000  |                  |
-| 29-09-2026 | TRANSFERENCI 20111111112     |                  | 250000  |          | CTE 000011110001 |
+| Fecha      | Concepto                     | Codigo | Crédito | Débito   | Detalle          |
+|------------|------------------------------|--------|---------|----------|------------------|
+| 30-09-2026 | CH/CLEAR.48  000000000001    | 005    |         | -150000  |                  |
+| 29-09-2026 | TRANSFERENCI 20111111112     | 319    | 250000  |          | CTE 000011110001 |
 
 Sale:
 
-| Fecha      | Concepto                     | Descripción      | Monto        |
-|------------|------------------------------|------------------|--------------|
-| 30/09/2026 | CH/CLEAR.48  000000000001    |                  | −150.000,00  |
-| 29/09/2026 | TRANSFERENCI 20111111112     | CTE 000011110001 | 250.000,00   |
+| Fecha      | Código | Descripción      | Monto        |
+|------------|--------|------------------|--------------|
+| 30/09/2026 | 005    |                  | −150.000,00  |
+| 29/09/2026 | 319    | CTE 000011110001 | 250.000,00   |

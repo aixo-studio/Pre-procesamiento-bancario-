@@ -17,7 +17,7 @@ trae la cuenta y la fecha de descarga (`Movimientos_Supervielle_<cuenta>_<fecha>
 | Salida      | Sale de          | Regla                                                |
 |-------------|------------------|------------------------------------------------------|
 | Fecha       | Fecha            | Viene como texto `30/09/2026`; se pasa a fecha real. |
-| Concepto    | Concepto         | Tal cual (`Pago Cheque de Cámara Recibida`).         |
+| Código      | Concepto         | Tal cual (`Pago Cheque de Cámara Recibida`).         |
 | Descripción | Detalle          | Tal cual (`Número Cheque: 2075`). Puede venir vacía. |
 | Monto       | Crédito y Débito | Crédito en positivo, débito en negativo.             |
 
@@ -44,7 +44,7 @@ Entra:
 
 Sale:
 
-| Fecha      | Concepto                       | Descripción        | Monto        |
+| Fecha      | Código                         | Descripción        | Monto        |
 |------------|--------------------------------|--------------------|--------------|
 | 30/09/2026 | CRED BCA ELECTR INTERBANC EXEN | CUENTAS PROPIAS    | 500.000,00   |
 | 29/09/2026 | Pago Cheque de Cámara Recibida | Número Cheque: 101 | −150.000,00  |

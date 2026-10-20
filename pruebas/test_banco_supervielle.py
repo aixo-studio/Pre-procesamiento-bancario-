@@ -24,7 +24,7 @@ def test_convierte_a_cuatro_columnas(tmp_path):
     resumen = controlar(movimientos, columnas, datos, reglas)
 
     assert [m.fecha for m in movimientos] == [date(2026, 9, 30), date(2026, 9, 29), date(2026, 9, 29)]
-    assert [m.concepto for m in movimientos][2] == "Pago Cheque de Cámara Recibida"
+    assert [m.codigo for m in movimientos][2] == "Pago Cheque de Cámara Recibida"
     assert [m.descripcion for m in movimientos] == ["CUENTAS PROPIAS", "", "Número Cheque: 101"]
     assert [m.monto_centavos for m in movimientos] == [50000000, -90000, -15000025]
     assert resumen["filas"] == 3 and resumen["ignoradas"] == 0

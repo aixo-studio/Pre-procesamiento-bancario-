@@ -51,7 +51,7 @@ def test_convierte_a_cuatro_columnas(tmp_path):
     movimientos, resumen = convertir(ruta)
 
     assert [m.fecha for m in movimientos] == [date(2026, 9, 1), date(2026, 9, 2)]
-    assert [m.concepto for m in movimientos] == ["Movimiento de Fondos", "Orden de pago"]
+    assert [m.codigo for m in movimientos] == ["Movimiento de Fondos", "Orden de pago"]
     assert [m.descripcion for m in movimientos] == ["Mvto. e/ ctas. propias", ""]
     # Usa el primer par de Debe y Haber (pesos), no el segundo (dólares).
     assert [m.monto_centavos for m in movimientos] == [50000000, -12500075]

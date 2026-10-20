@@ -25,7 +25,7 @@ Se exporta del sistema como `.xlsx`, una cuenta por archivo, con una sola hoja
 | Salida      | Sale de           | Regla                                                         |
 |-------------|-------------------|---------------------------------------------------------------|
 | Fecha       | Fecha             | Viene como fecha real de Excel.                               |
-| Concepto    | Tipo de documento | Tal cual: Movimiento de Fondos, Orden de pago, Recibo de Cobranzas… |
+| Código      | Tipo de documento | Tal cual: Movimiento de Fondos, Orden de pago, Recibo de Cobranzas… |
 | Descripción | Descripción       | Tal cual. Muchas veces viene vacía y queda vacía.             |
 | Monto       | Debe y Haber      | Debe en positivo (entra al banco), Haber en negativo (sale).  |
 
@@ -60,7 +60,7 @@ Entra:
 
 Sale:
 
-| Fecha      | Concepto             | Descripción            | Monto        |
+| Fecha      | Código               | Descripción            | Monto        |
 |------------|----------------------|------------------------|--------------|
 | 01/09/2026 | Movimiento de Fondos | Mvto. e/ ctas. propias | 500.000,00   |
 | 01/09/2026 | Orden de pago        |                        | −125.000,00  |

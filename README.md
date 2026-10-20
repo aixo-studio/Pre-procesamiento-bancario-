@@ -2,7 +2,7 @@
 
 Etapa 1 de la conciliación bancaria. Convierte cada documento del mes (el
 extracto de un banco o el libro del sistema financiero) en un Excel con cuatro
-columnas: **Fecha, Concepto, Descripción y Monto**. Crédito en positivo,
+columnas: **Fecha, Código, Descripción y Monto**. Crédito en positivo,
 débito en negativo. Sin IA: todo son reglas fijas en código.
 
 El cruce entre banco y sistema es la etapa 2 y va en otro repo
@@ -54,7 +54,7 @@ convertir.py           la puerta de entrada: lo que se corre en la terminal
 motor/                 lo que es igual para todos los documentos
   carpetas.py          dónde están los archivos y qué documento es cada uno
   leer.py              abre el Excel y encuentra la tabla
-  armar.py             arma Fecha, Concepto, Descripción y Monto
+  armar.py             arma Fecha, Código, Descripción y Monto
   escribir.py          controla filas y suma, y escribe el Excel
 documentos/            una carpeta por documento, cada una con:
   banco_bbva/            README.md  cómo viene y cómo se convierte (para personas)
@@ -104,8 +104,10 @@ main()  (convertir.py)
         │      │    ├─ es_ignorada()     saltea las de IGNORAR (el "Saldo Inicial")
         │      │    ├─ a_centavos()      pasa crédito y débito a centavos enteros
         │      │    ├─ a_fecha()         pasa la fecha a fecha real
-        │      │    └─ a_texto()         toma Concepto y Descripción tal cual
-        │      │    → un Movimiento por fila: fecha, concepto, descripción, monto
+        │      │    ├─ a_codigo()        toma el Código tal cual, como texto; si
+        │      │    │                    viene como número, frena (perdió sus ceros)
+        │      │    └─ a_texto()         toma la Descripción tal cual
+        │      │    → un Movimiento por fila: fecha, código, descripción, monto
         │      └─ controlar()            (motor/escribir.py) vuelve a contar filas y a
         │                                sumar desde el original; si no cierra, frena
         │      Si frena ──► no se escribe nada y se informa el error.
@@ -119,6 +121,91 @@ main()  (convertir.py)
 
 Al final, main() muestra cuántos archivos se convirtieron y cuántos fallaron.
 ```
+
+## Decisiones
+
+Qué se decidió, por qué, qué se descartó y dónde puede fallar. Sirve para
+defender el sistema sin abrir el código.
+
+**1. Sin IA: todo con reglas fijas.**
+Por qué: el mismo archivo da siempre el mismo resultado, y cada paso se puede
+verificar y explicar. Se descartó: usar IA para leer los archivos (puede dar
+resultados distintos y es difícil de auditar). Límite: si un banco cambia su
+formato, el programa no se adapta solo; frena y hay que escribir la regla nueva.
+
+**2. Cada archivo se reconoce por sus encabezados, no por su nombre.**
+Por qué: el nombre lo pone una persona, cambia de un mes a otro y puede traer
+el nombre del cliente. Se descartó: reconocer por nombre o pedir que se
+indique a mano. Límite: si el banco renombra una columna, el archivo no se
+reconoce y frena; nunca adivina.
+
+**3. La tabla se busca por encabezados, no por número de fila.**
+Por qué: los bancos agregan o sacan líneas de título arriba. Límite: se usa la
+primera fila que tenga todos los encabezados esperados.
+
+**4. Los montos se cuentan en centavos enteros.**
+Por qué: los decimales en una computadora tienen errores mínimos; con enteros
+la suma es exacta. Se descartó: sumar con decimales. La etapa 2 tiene que
+hacer lo mismo al leer (está en el contrato del CLAUDE.md).
+
+**5. Se controlan filas y suma contra el original; si no cierra, no se genera.**
+Por qué: ninguna fila se puede perder en silencio. Límite importante: el
+control compara contra el mismo archivo que entró. Si el banco entrega un
+extracto al que le faltan días, el control da bien igual. Para detectarlo hace
+falta un control de saldos (saldo final − saldo inicial), que todavía no está.
+
+**6. Si un archivo falla, se borra su resultado anterior.**
+Por qué: la etapa 2 nunca tiene que cruzar un resultado viejo creyendo que es
+nuevo. Se descartó: dejar el viejo con un aviso. Límite: si se corre por error
+un archivo malo, se pierde el resultado bueno anterior; se recupera volviendo
+a correr el original correcto.
+
+**7. En cada carpeta de banco va exactamente 1 extracto y 1 libro del sistema.**
+Por qué: la etapa 2 cruza de a pares; con dos extractos no sabría cuál usar.
+Límite: un banco con dos cuentas no entra en una sola carpeta, y hoy el nombre
+de la carpeta tiene que ser el del banco (BBVA, Galicia, Supervielle).
+
+**8. Las fechas de otro mes se avisan, pero no frenan ni se sacan.**
+Por qué: pueden ser válidas (un movimiento del 31 registrado el 1); decidir qué
+hacer con ellas no es de esta etapa. Límite: el aviso no detecta un mes
+incompleto (ver la decisión 5).
+
+**9. En el libro del sistema, el Debe y Haber en pesos se toman por su lugar.**
+Por qué: el libro trae dos pares con el mismo nombre, uno en pesos y otro en
+dólares. El de pesos es el que está entre Descripción y Documento. Se
+descartó: tomar el primero que aparece. Límite: si el sistema cambia el orden
+de esas columnas, el programa frena en vez de usar los dólares.
+
+**10. El saldo inicial se ignora; si trae monto, frena.**
+Por qué: no es un movimiento. Se reconoce por el texto "Saldo Inicial". Límite:
+si el sistema cambia ese texto, la fila no se ignora y el programa frena
+porque no tiene monto; no pasa en silencio.
+
+**11. Las fechas se guardan como fecha real, no como texto.**
+Por qué: un texto como "01/09/2026" se lee distinto según la configuración de
+la computadora; una fecha real es la misma en cualquier lado.
+
+**12. Los datos viven fuera del repo, en una carpeta al lado.**
+Por qué: los archivos de un cliente nunca se suben a GitHub. Se descartó: una
+ruta fija con el usuario de la computadora. Límite: el repo y "conciliacion
+resultados" tienen que estar en la misma carpeta.
+
+**13. Los gastos bancarios salen incluidos.**
+Por qué: separarlos es trabajo de la etapa 2, con una lista por banco. Así esta
+etapa entrega el documento entero y la suma cierra contra el original.
+
+**14. La segunda columna es "Código", no "Concepto".**
+Por qué: cada banco identifica sus gastos con una columna distinta (BBVA:
+Codigo; Galicia: Grupo de Conceptos; Supervielle: Concepto; sistema: Tipo de
+documento). Se toma el valor puro de esa columna, sin mezclar, con un nombre
+igual para todos. Verificado con septiembre: con la lista de cada banco se
+separan exactamente los gastos que se habían separado a mano (BBVA 836,
+Galicia 387, Supervielle 89). Se descartó: el Concepto, que en el BBVA mezcla
+el tipo con otros datos. Límites: en el BBVA el texto del Concepto (con el
+CUIT o la referencia del cheque) ya no sale en el resultado. Si el Código
+llega como número (por ejemplo, si alguien abrió y guardó el archivo en
+Excel), "005" pudo quedar en 5: el archivo no se genera y se pide bajarlo de
+nuevo del banco.
 
 ## Documentos disponibles
 
