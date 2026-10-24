@@ -12,8 +12,16 @@ columnas: Fecha, Código, Descripción y Monto.
 
 Es la etapa 1 de la conciliación bancaria. Termina cuando cada documento del
 mes quedó convertido en la carpeta de salida. El cruce entre banco y sistema
-NO va acá: es la etapa 2, en otro repo ("conciliacion v4"), que arranca
-leyendo lo que deja este. Si un pedido es del cruce, frenar y avisar.
+NO va acá: es la etapa 2, en otro repo (en GitHub "Conciliador", carpeta local
+"conciliacion v4"), que arranca leyendo lo que deja este. Si un pedido es
+del cruce, frenar y avisar.
+
+Las carpetas locales y los repos de GitHub no se llaman igual:
+
+| Carpeta local     | Repo en GitHub                                             | Etapa                             |
+|-------------------|------------------------------------------------------------|-----------------------------------|
+| conciliacion v3   | https://github.com/aixo-studio/Pre-procesamiento-bancario- | 1 (este repo)                     |
+| conciliacion v4   | https://github.com/aixo-studio/Conciliador                 | 2 (lee lo que deja este)          |
 
 ## Cómo se trabaja
 
@@ -29,6 +37,10 @@ leyendo lo que deja este. Si un pedido es del cruce, frenar y avisar.
   tiene que mostrar en pantalla.
 - Los commits y los push los hace siempre el usuario. Claude le pasa los
   comandos y nunca los corre.
+- Antes de cada push, el primer comando es `git remote -v`. Tiene que mostrar
+  `https://github.com/aixo-studio/Pre-procesamiento-bancario-.git` en las dos
+  líneas (fetch y push). Si muestra otro repo (por ejemplo Conciliador), no se
+  pushea: se frena y se revisa.
 - Primero el plan: qué se va a hacer, por qué y cómo queda el resultado. Si hay
   más de una forma, mostrar las opciones con pros y contras. No se construye
   sin el OK del usuario.
@@ -155,7 +167,8 @@ Cómo se corre:
 
 ## La salida es el contrato con la etapa 2
 
-El repo "conciliacion v4" lee estos archivos tal como salen. Cualquier cambio
+El repo de la etapa 2 (Conciliador, carpeta "conciliacion v4") lee estos
+archivos tal como salen. Cualquier cambio
 en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
 
 - Carpeta: `conciliacion resultados/v3/output/<AAAA-MM>/<Banco>/`
@@ -179,9 +192,14 @@ en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
 
 - Fecha: fecha real de Excel. Código y Descripción: texto (puede estar vacío).
   El Código sale tal cual, con sus ceros adelante ("005", nunca 5); si en el
-  original viene como número, el archivo no se genera. Monto: número con dos
-  decimales; crédito positivo, débito negativo. En el sistema, Debe (entra al
-  banco) es positivo y Haber negativo.
+  original viene como número, el archivo no se genera. Monto: número en pesos
+  con dos decimales; si es redondo (sin centavos) queda guardado como entero,
+  por ejemplo 250000 en vez de 250000.00, con el mismo valor. Crédito
+  positivo, débito negativo. En el sistema, Debe (entra al banco) es positivo
+  y Haber negativo.
+- El texto del Concepto del BBVA y del Galicia ya no sale (cambio del
+  2026-10-20, commit 306da11). Si la etapa 2 lo necesita, se pide un cambio de
+  contrato.
 - Al leer el Monto, la etapa 2 lo pasa a centavos enteros redondeando, y
   compara y suma en centavos: un decimal leído de un Excel puede venir con
   un error mínimo (1500000.2499999 en vez de 1500000.25).

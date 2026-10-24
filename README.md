@@ -6,7 +6,8 @@ columnas: **Fecha, Código, Descripción y Monto**. Crédito en positivo,
 débito en negativo. Sin IA: todo son reglas fijas en código.
 
 El cruce entre banco y sistema es la etapa 2 y va en otro repo
-("conciliacion v4"), que lee los archivos que deja este.
+(en GitHub "Conciliador", carpeta local "conciliacion v4"), que lee los
+archivos que deja este.
 
 ## Dónde están los datos
 
