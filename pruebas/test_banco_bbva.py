@@ -4,10 +4,12 @@ from datetime import date
 import openpyxl
 import pytest
 
-from documentos.banco_bbva import reglas
 from motor.armar import armar_movimientos
+from motor.configuracion import buscar_reglas_y_carpeta
 from motor.escribir import controlar, escribir_excel
 from motor.leer import encontrar_tabla, leer_filas
+
+reglas, _ = buscar_reglas_y_carpeta("BBVA", es_erp=False)
 
 ENCABEZADO = ["Fecha", "Fecha Valor", "Concepto", "Codigo", "Número Documento",
               "Oficina", "Crédito", "Débito", "Detalle", "   "]
@@ -30,7 +32,7 @@ def crear_extracto(carpeta, filas_de_datos):
 
 def convertir(ruta):
     """Corre los pasos del motor sobre el archivo de prueba y devuelve movimientos y resumen."""
-    columnas, datos = encontrar_tabla(leer_filas(ruta), reglas.ENCABEZADOS)
+    columnas, datos = encontrar_tabla(leer_filas(ruta), reglas["encabezados"])
     movimientos = armar_movimientos(columnas, datos, reglas)
     return movimientos, controlar(movimientos, columnas, datos, reglas)
 

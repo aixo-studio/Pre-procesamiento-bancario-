@@ -33,7 +33,7 @@ Se exporta del sistema como `.xlsx`, una cuenta por archivo, con una sola hoja
 
 - **Debe y Haber aparecen dos veces.** Un par está en pesos y es el que se usa;
   el otro es el mismo importe en dólares. El de pesos se reconoce porque está
-  entre Descripción y Documento (`SEGUIDAS` en `reglas.py`). Si esas cuatro
+  entre Descripción y Documento (`seguidas` en `configuracion.toml`). Si esas cuatro
   columnas no vienen juntas y en ese orden, el programa frena: así nunca toma
   los dólares por error si el sistema cambia el orden de las columnas.
 - Cada movimiento tiene Debe o Haber, uno solo. Si una fila trae los dos, o

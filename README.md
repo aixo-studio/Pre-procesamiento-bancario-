@@ -1,9 +1,9 @@
 # Conciliación v3 — documentos a cuatro columnas
 
-Etapa 1 de la conciliación bancaria. Convierte cada documento del mes (el
-extracto de un banco o el libro del sistema financiero) en un Excel con cuatro
-columnas: **Fecha, Código, Descripción y Monto**. Crédito en positivo,
-débito en negativo. Sin IA: todo son reglas fijas en código.
+Etapa 1 de la conciliación bancaria. Convierte un documento (el extracto de un
+banco o el libro del ERP de esa cuenta) en un Excel con cuatro columnas:
+**Fecha, Código, Descripción y Monto**. Crédito en positivo, débito en
+negativo. Sin IA: todo son reglas fijas, escritas en `configuracion.toml`.
 
 El cruce entre banco y sistema es la etapa 2 y va en otro repo
 (en GitHub "Conciliador", carpeta local "conciliacion v4"), que lee los
@@ -11,15 +11,17 @@ archivos que deja este.
 
 ## Dónde están los datos
 
-Fuera del repo, en una carpeta al lado:
+Los originales pueden estar en cualquier carpeta: cada corrida recibe la ruta
+del archivo. Los resultados se guardan fuera del repo, en una carpeta al lado:
 
 ```
-Documents/
-  conciliacion v3/                  este repo
+<carpeta que contiene el repo>/
+  conciliacion v3/                         este repo
   conciliacion resultados/v3/
-    input/<AAAA-MM>/<Banco>/        los crudos: un extracto y un libro del sistema
-    output/<AAAA-MM>/<Banco>/       lo que escribe este repo
+    output/<AAAA-MM>/<carpeta del banco>/  lo que escribe este repo
 ```
+
+La carpeta de cada banco sale de `configuracion.toml`.
 
 ## Cómo se usa
 
@@ -35,92 +37,94 @@ Después, cada vez:
 
 ```
 source .venv/bin/activate
-python convertir.py 2026-09                         todo el mes
-python convertir.py 2026-09 BBVA                    un banco
-python convertir.py 2026-09 BBVA "extracto.xls"     un solo archivo
+python convertir.py 2026-09 BBVA "ruta/extracto.xls"          el extracto del BBVA
+python convertir.py 2026-09 BBVA "ruta/libro.xlsx" --erp      el libro del ERP de la cuenta BBVA
 ```
 
-Cada archivo se convierte por separado y queda como
-`output/<mes>/<Banco>/<documento> - <nombre del original>.xlsx`, con una sola
-hoja, "Movimientos". En pantalla sale, por archivo, la cantidad de filas y la
-suma, controladas contra el original. Si algo no cierra, ese archivo no se
-genera, se borra su resultado anterior y se dice por qué; los demás siguen.
+Cada corrida convierte un archivo: el mes, el banco, la ruta y, si es el libro
+del ERP, `--erp`. El resultado queda como
+`output/<mes>/<carpeta del banco>/<documento> - <nombre del original>.xlsx`,
+con una sola hoja, "Movimientos". En pantalla sale la cantidad de filas y la
+suma, controladas contra el original. Si algo no cierra, no se genera, se
+borra el resultado anterior de ese documento y se dice por qué.
 
-Para correr las pruebas: `pytest`
+La UI llama a `convertir_documento()` (en `convertir.py`) con los mismos datos.
+
+Para correr las pruebas: `python -m pytest` (así usa el Python del `.venv`
+aunque haya otro instalado, por ejemplo el de conda).
 
 ## Mapa de carpetas
 
 ```
-convertir.py           la puerta de entrada: lo que se corre en la terminal
+convertir.py           la puerta de entrada: la terminal y la función que llama la UI
+configuracion.toml     las reglas de cada banco y del ERP (para el programa)
 motor/                 lo que es igual para todos los documentos
-  carpetas.py          dónde están los archivos y qué documento es cada uno
+  configuracion.py     trae del config las reglas y la carpeta que corresponden
   leer.py              abre el Excel y encuentra la tabla
   armar.py             arma Fecha, Código, Descripción y Monto
   escribir.py          controla filas y suma, y escribe el Excel
-documentos/            una carpeta por documento, cada una con:
-  banco_bbva/            README.md  cómo viene y cómo se convierte (para personas)
-  banco_galicia/         reglas.py  lo mismo, para el programa
+  carpetas.py          nombra el resultado, borra el viejo y avisa fechas de otro mes
+documentos/            un README.md por documento: cómo viene y cómo se convierte (para personas)
+  banco_bbva/
+  banco_galicia/
   banco_supervielle/
-  sistema_finnegans/     el libro del sistema (sirve para la cuenta de cualquier banco)
-pruebas/               una prueba por documento y una de carpetas, con datos inventados
+  sistema_finnegans/     el libro del ERP (sirve para la cuenta de cualquier banco)
+pruebas/               una prueba por documento y una de la entrada, con datos inventados
 CLAUDE.md              cómo se trabaja en este repo
+PENDIENTES.md          lo abierto y lo hecho
 ```
 
 ## Mapa del flujo
 
-El camino de un archivo desde que se corre `python convertir.py 2026-09`
-hasta que sale el Excel. Entre paréntesis, el archivo donde está cada función.
+El camino de un archivo desde que se corre
+`python convertir.py 2026-09 BBVA "extracto.xls"` hasta que sale el Excel.
+Entre paréntesis, el archivo donde está cada función.
 
 ```
 main()  (convertir.py)
-│  Lee lo que escribiste en la terminal: el mes y, si los pusiste, el banco
-│  y el archivo. Arma las rutas de input y output del mes.
+│  Lee lo que escribiste en la terminal: mes, banco, archivo y si es --erp.
+│  (La UI se salta este paso y llama directo a convertir_documento.)
 │
-└─► convertir_banco()  (convertir.py)        ← una vez por cada carpeta de banco
+└─► convertir_documento()  (convertir.py)
     │
-    ├─► 1. revisar_carpeta()  (motor/carpetas.py)
-    │      Revisa la carpeta del banco antes de convertir nada.
-    │      ├─ es_excel()             deja solo los .xls y .xlsx (saltea ocultos y temporales)
-    │      ├─ leer_filas()           (motor/leer.py) abre cada Excel y trae todas sus filas
-    │      └─ reconocer_documento()  prueba los encabezados de los 4 documentos y se
-    │           │                    queda con el único que encaja
-    │           ├─ cargar_reglas()   trae el reglas.py de cada documento
-    │           └─ encontrar_tabla() (motor/leer.py) busca la fila de encabezados
-    │      Tiene que haber 1 extracto de ese banco y 1 libro del sistema.
-    │      Si no ──► borrar_salidas() borra los resultados viejos del banco y sigue
-    │                con el banco siguiente.
+    ├─► 1. Controla que el mes tenga la forma AAAA-MM.
     │
-    └─► Por cada uno de los 2 archivos:
-        │
-        ├─► 2. borrar_salidas()  (motor/carpetas.py)
-        │      Borra el resultado anterior de ese documento, si existía.
-        │
-        ├─► 3. convertir_archivo()  (convertir.py)
-        │      ├─ cargar_reglas()        trae el reglas.py del documento
-        │      ├─ encontrar_tabla()      (motor/leer.py) ubica cada columna; si el
-        │      │    │                    documento tiene SEGUIDAS (el libro del sistema),
-        │      │    └─ buscar_seguidas() toma el Debe y Haber en pesos, no en dólares
-        │      ├─ armar_movimientos()    (motor/armar.py) recorre fila por fila:
-        │      │    ├─ esta_vacia()      saltea las filas vacías
-        │      │    ├─ es_ignorada()     saltea las de IGNORAR (el "Saldo Inicial")
-        │      │    ├─ a_centavos()      pasa crédito y débito a centavos enteros
-        │      │    ├─ a_fecha()         pasa la fecha a fecha real
-        │      │    ├─ a_codigo()        toma el Código tal cual, como texto; si
-        │      │    │                    viene como número, frena (perdió sus ceros)
-        │      │    └─ a_texto()         toma la Descripción tal cual
-        │      │    → un Movimiento por fila: fecha, código, descripción, monto
-        │      └─ controlar()            (motor/escribir.py) vuelve a contar filas y a
-        │                                sumar desde el original; si no cierra, frena
-        │      Si frena ──► no se escribe nada y se informa el error.
-        │
-        ├─► 4. ruta_salida() + escribir_excel()  (motor/carpetas.py, motor/escribir.py)
-        │      Arma el nombre "<documento> - <original>.xlsx" y escribe la hoja
-        │      "Movimientos" con las cuatro columnas.
-        │
-        └─► 5. fechas_fuera_del_mes()  (motor/carpetas.py)
-               Cuenta filas con fecha de otro mes y lo avisa. No frena ni las saca.
+    ├─► 2. buscar_reglas_y_carpeta()  (motor/configuracion.py)
+    │      Lee configuracion.toml. Si el banco no está, frena.
+    │      Devuelve las reglas (las del ERP si es --erp, si no las del banco)
+    │      y la carpeta de salida del banco.
+    │
+    ├─► 3. borrar_salidas()  (motor/carpetas.py)
+    │      Borra el resultado anterior de ese documento, si existía.
+    │
+    ├─► 4. limpiar_archivo()  (convertir.py)
+    │      ├─ leer_filas()           (motor/leer.py) abre el Excel y trae las filas
+    │      │                         de la primera hoja; si no puede, frena
+    │      ├─ encontrar_tabla()      (motor/leer.py) busca la fila con los encabezados
+    │      │    │                    de las reglas; si no está, frena: el archivo no
+    │      │    │                    es el documento que se indicó
+    │      │    └─ buscar_seguidas() en el ERP, toma el Debe y Haber en pesos
+    │      ├─ armar_movimientos()    (motor/armar.py) recorre fila por fila:
+    │      │    ├─ esta_vacia()      saltea las filas vacías
+    │      │    ├─ es_ignorada()     saltea las de "ignorar" (el "Saldo Inicial")
+    │      │    ├─ a_centavos()      pasa crédito y débito a centavos enteros
+    │      │    ├─ a_fecha()         pasa la fecha a fecha real
+    │      │    ├─ a_codigo()        toma el Código tal cual, como texto; si
+    │      │    │                    viene como número, frena (perdió sus ceros)
+    │      │    └─ a_texto()         toma la Descripción tal cual
+    │      │    → un Movimiento por fila: fecha, código, descripción, monto
+    │      └─ controlar()            (motor/escribir.py) vuelve a contar filas y a
+    │                                sumar desde el original; si no cierra, frena
+    │      Si frena ──► no se escribe nada y el error dice qué se borró.
+    │
+    ├─► 5. ruta_salida() + escribir_excel()  (motor/carpetas.py, motor/escribir.py)
+    │      Escribe "output/<mes>/<carpeta del banco>/<documento> - <original>.xlsx"
+    │      con la hoja "Movimientos" y las cuatro columnas.
+    │
+    └─► 6. fechas_fuera_del_mes()  (motor/carpetas.py)
+           Cuenta filas con fecha de otro mes. No frena ni las saca.
 
-Al final, main() muestra cuántos archivos se convirtieron y cuántos fallaron.
+Al final, main() muestra filas, suma, dónde quedó y el aviso de otro mes.
 ```
 
 ## Decisiones
@@ -134,15 +138,22 @@ verificar y explicar. Se descartó: usar IA para leer los archivos (puede dar
 resultados distintos y es difícil de auditar). Límite: si un banco cambia su
 formato, el programa no se adapta solo; frena y hay que escribir la regla nueva.
 
-**2. Cada archivo se reconoce por sus encabezados, no por su nombre.**
-Por qué: el nombre lo pone una persona, cambia de un mes a otro y puede traer
-el nombre del cliente. Se descartó: reconocer por nombre o pedir que se
-indique a mano. Límite: si el banco renombra una columna, el archivo no se
-reconoce y frena; nunca adivina.
+**2. Quien llama dice qué es el archivo; los encabezados lo confirman.**
+Cada corrida recibe el banco y si es el libro del ERP. Los encabezados del
+archivo se comparan solo contra las reglas de ese documento. Por qué: es más
+simple que adivinar entre todos los documentos y no tiene el caso de
+"coincide con más de uno". El nombre del archivo nunca se usa: lo pone una
+persona y cambia de un mes a otro. Se descartó (era lo anterior): probar los
+encabezados de todos los documentos y quedarse con el que encaja. Límite: si
+el banco renombra una columna, el archivo no se confirma y frena; nunca
+adivina.
 
 **3. La tabla se busca por encabezados, no por número de fila.**
-Por qué: los bancos agregan o sacan líneas de título arriba. Límite: se usa la
-primera fila que tenga todos los encabezados esperados.
+Por qué: los bancos agregan o sacan líneas de título arriba. Límites: se usa la
+primera fila que tenga todos los encabezados esperados, y solo se lee la
+primera hoja. Si alguien agrega una hoja adelante con la misma tabla (pasó con
+un Galicia con una hoja "Gastos Bancarios" hecha a mano), se convierte esa
+hoja sin aviso (ver PENDIENTES.md).
 
 **4. Los montos se cuentan en centavos enteros.**
 Por qué: los decimales en una computadora tienen errores mínimos; con enteros
@@ -161,10 +172,13 @@ nuevo. Se descartó: dejar el viejo con un aviso. Límite: si se corre por error
 un archivo malo, se pierde el resultado bueno anterior; se recupera volviendo
 a correr el original correcto.
 
-**7. En cada carpeta de banco va exactamente 1 extracto y 1 libro del sistema.**
-Por qué: la etapa 2 cruza de a pares; con dos extractos no sabría cuál usar.
-Límite: un banco con dos cuentas no entra en una sola carpeta, y hoy el nombre
-de la carpeta tiene que ser el del banco (BBVA, Galicia, Supervielle).
+**7. Se convierte de a un archivo; armar el par extracto + libro es de la UI.**
+Por qué: la entrada queda mínima (un archivo, su banco y si es ERP) y sirve
+igual para la terminal y para la UI. Se descartó (era lo anterior): recorrer
+la carpeta de cada banco y exigir 1 extracto y 1 libro. Límites: el programa
+no controla que el libro del ERP sea de la cuenta de ese banco; si se lo pasa
+con el banco equivocado, va a la carpeta equivocada sin aviso. Un banco con
+dos cuentas todavía no tiene dónde ir: hay una carpeta de salida por banco.
 
 **8. Las fechas de otro mes se avisan, pero no frenan ni se sacan.**
 Por qué: pueden ser válidas (un movimiento del 31 registrado el 1); decidir qué
@@ -186,10 +200,11 @@ porque no tiene monto; no pasa en silencio.
 Por qué: un texto como "01/09/2026" se lee distinto según la configuración de
 la computadora; una fecha real es la misma en cualquier lado.
 
-**12. Los datos viven fuera del repo, en una carpeta al lado.**
+**12. Los resultados viven fuera del repo, en una carpeta al lado.**
 Por qué: los archivos de un cliente nunca se suben a GitHub. Se descartó: una
 ruta fija con el usuario de la computadora. Límite: el repo y "conciliacion
-resultados" tienen que estar en la misma carpeta.
+resultados" tienen que estar en la misma carpeta. Los originales pueden estar
+en cualquier lado.
 
 **13. Los gastos bancarios salen incluidos.**
 Por qué: separarlos es trabajo de la etapa 2, con una lista por banco. Así esta
@@ -208,18 +223,28 @@ llega como número (por ejemplo, si alguien abrió y guardó el archivo en
 Excel), "005" pudo quedar en 5: el archivo no se genera y se pide bajarlo de
 nuevo del banco.
 
+**15. Las reglas de todos los documentos están en un solo archivo: `configuracion.toml`.**
+Una sección por banco (reglas del extracto y carpeta de salida) y una para el
+ERP. Por qué: agregar un banco es agregar una sección, sin tocar código; el
+`motor/` no tiene nada propio de un banco. Se eligió TOML porque se lee fácil,
+admite comentarios y Python lo lee sin dependencias nuevas. Se descartó: un
+`reglas.py` por documento más una tabla de bancos dentro del `motor/` (era lo
+anterior: había que tocar dos lugares), JSON (no admite comentarios) y Python
+(es código, no configuración). Límite: el motor solo sabe leer crédito y
+débito en columnas separadas; un banco con una sola columna de monto
+necesitaría un cambio en el `motor/`.
+
 ## Documentos disponibles
 
-| Documento | Carpeta de banco | Estado |
+| Documento | Sección en configuracion.toml | Estado |
 |---|---|---|
-| Extracto BBVA | `BBVA` | Funciona |
-| Extracto Galicia | `Galicia` | Funciona |
-| Extracto Supervielle | `Supervielle` | Funciona |
-| Libro del sistema | cualquiera | Funciona |
+| Extracto BBVA | `bancos.BBVA` | Funciona |
+| Extracto Galicia | `bancos.Galicia` | Funciona |
+| Extracto Supervielle | `bancos.Supervielle` | Funciona |
+| Libro del ERP | `erp` | Funciona (con el banco de su cuenta) |
 
-## Agregar un documento
+## Agregar un banco
 
-Crear una carpeta en `documentos/` con su `README.md` y su `reglas.py`, una
-prueba en `pruebas/` y, si es un banco nuevo, sumarlo a la tabla `BANCOS` de
-`motor/carpetas.py`. No hace falta tocar el resto del `motor/`; si hiciera
-falta, primero se discute.
+Agregar su sección `[bancos.<Banco>]` en `configuracion.toml`, su
+`documentos/<documento>/README.md` y su prueba en `pruebas/`. No hace falta
+tocar el `motor/`; si hiciera falta, primero se discute.

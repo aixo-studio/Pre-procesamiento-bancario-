@@ -84,44 +84,46 @@ Ahí manda la velocidad.
 
 ## Dónde están los datos
 
-Los datos viven fuera del repo, en una carpeta al lado de él:
+Los resultados viven fuera del repo, en una carpeta al lado de él:
 
-    Documents/
-      conciliacion v3/                  este repo
+    <carpeta que contiene el repo>/
+      conciliacion v3/                          este repo
       conciliacion resultados/v3/
-        input/<AAAA-MM>/<Banco>/        los crudos (los pone el usuario)
-        output/<AAAA-MM>/<Banco>/       lo que escribe este repo
+        input/<AAAA-MM>/                        los crudos, por costumbre (pueden estar en otro lado)
+        output/<AAAA-MM>/<carpeta del banco>/   lo que escribe este repo
 
-En cada carpeta de banco del input tiene que haber exactamente dos archivos:
-el extracto de ese banco y el libro del sistema de esa cuenta. El programa
-nunca escribe en input ni modifica un original.
+Cada corrida convierte un archivo. Recibe el mes, el banco, la ruta del
+archivo y, si es el libro del ERP, `--erp`. Armar el par extracto + libro de
+cada cuenta es responsabilidad de quien llama (la UI). El programa nunca
+modifica un original.
 
 Cómo se corre:
 
-    python convertir.py 2026-09                         todo el mes
-    python convertir.py 2026-09 BBVA                    un banco
-    python convertir.py 2026-09 BBVA "banco BBVA.xls"   un solo archivo
+    python convertir.py 2026-09 BBVA "ruta/extracto.xls"         el extracto del BBVA
+    python convertir.py 2026-09 BBVA "ruta/libro.xlsx" --erp     el libro del ERP de la cuenta BBVA
 
 ## Orden del repositorio
 
-- `convertir.py` es la puerta de entrada: recibe el mes (y opcionalmente el
-  banco o el archivo), convierte y muestra el resumen.
-- `motor/` tiene lo que es igual para todos los documentos: encontrar los
-  archivos y reconocer qué documento es cada uno, leer, armar las cuatro
-  columnas, controlar y escribir. No lleva nada propio de un banco.
-- `documentos/<documento>/` tiene todo lo propio de un documento, en dos
-  archivos: `README.md` (cómo viene y cómo se convierte, para personas) y
-  `reglas.py` (lo mismo, para el programa). Los dos dicen lo mismo; si no,
-  está mal.
-- Agregar un documento es agregar una carpeta en `documentos/`, su prueba y
-  su banco en la tabla de carpetas. Si para eso hay que tocar el resto del
-  `motor/`, frenar y avisar.
+- `convertir.py` es la puerta de entrada: la terminal (`main`) y la función
+  que llama la UI (`convertir_documento`). Recibe mes, banco, archivo y si es
+  el ERP, convierte y devuelve el resumen.
+- `configuracion.toml` tiene las reglas de cada documento: una sección por
+  banco (reglas del extracto y carpeta de salida) y una para el ERP.
+- `motor/` tiene lo que es igual para todos los documentos: traer las reglas
+  del config, leer, armar las cuatro columnas, controlar y escribir. No lleva
+  nada propio de un banco.
+- `documentos/<documento>/README.md` explica cómo viene y cómo se convierte
+  ese documento, para personas. Dice lo mismo que su sección del config; si
+  no, está mal.
+- Agregar un banco es agregar su sección en `configuracion.toml`, su README y
+  su prueba. Si para eso hay que tocar el `motor/`, frenar y avisar.
 - Cada archivo hace una sola cosa. Nada de archivos sueltos ni de código para
   necesidades que todavía no existen. Menos código es mejor.
 
 ## Verificación
 
-- `pytest` antes de cada commit. Cada regla de un documento tiene su prueba.
+- `python -m pytest` antes de cada commit (así usa el Python del `.venv` y no
+  el de conda). Cada regla de un documento tiene su prueba.
 - Al convertir archivos reales, mostrar el resumen de cada uno: filas,
   filas ignoradas y suma contra el original.
 - Referencia fija: septiembre 2026 tiene que dar exactamente esto. Si un
@@ -141,24 +143,21 @@ Cómo se corre:
 - Sin IA. Todo lo decide el código con reglas fijas.
 - Cada documento sale entero, en una sola hoja "Movimientos", con los gastos
   bancarios incluidos. Separar gastos no es de esta etapa.
-- Qué columna del original va a cada columna de la salida lo define el
-  `reglas.py` de cada documento, y nada más. No se agregan columnas a la
-  Descripción.
-- El documento de cada archivo se reconoce por sus encabezados, nunca por el
-  nombre del archivo. Tiene que coincidir exactamente uno, y si es un extracto
-  de banco, tiene que ser el banco de su carpeta. Si no, ese archivo no se
-  convierte y se dice por qué.
-- En cada carpeta de banco tiene que haber exactamente un extracto de ese
-  banco y un libro del sistema. Si falta uno o hay de más, ese banco no se
-  convierte y se dice por qué.
+- Qué columna del original va a cada columna de la salida lo define la
+  sección de cada documento en `configuracion.toml`, y nada más. No se agregan
+  columnas a la Descripción.
+- Quien llama dice qué es el archivo (el banco y si es el ERP), nunca el
+  nombre del archivo. Si el banco no está en el config, o los encabezados no
+  coinciden con las reglas de ese documento, el archivo no se convierte y se
+  dice por qué.
 - Ninguna fila se pierde en silencio. La cantidad de filas y la suma de Monto
   tienen que cerrar contra el original; si no cierran, no se genera el archivo
-  y se dice por qué. Los demás archivos del mes siguen.
+  y se dice por qué.
 - Si un archivo no se puede convertir, se borra su salida anterior (si
   existía) y el resumen lo dice. Así la etapa 2 nunca cruza un resultado viejo.
 - El saldo inicial no es un movimiento: se saca siempre. Si un documento lo
-  trae, se indica en su `reglas.py` (IGNORAR) y el resumen lo informa.
-- Si un archivo trae filas con fecha fuera del mes de su carpeta, el resumen
+  trae, se indica en su sección del config (`ignorar`) y el resumen lo informa.
+- Si un archivo trae filas con fecha fuera del mes indicado, el resumen
   avisa cuántas y de qué mes. No frena y no las saca.
 - El archivo original nunca se modifica.
 - Los archivos reales de un cliente nunca se suben al repo. Las pruebas usan
@@ -171,11 +170,12 @@ El repo de la etapa 2 (Conciliador, carpeta "conciliacion v4") lee estos
 archivos tal como salen. Cualquier cambio
 en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
 
-- Carpeta: `conciliacion resultados/v3/output/<AAAA-MM>/<Banco>/`
+- Carpeta: `conciliacion resultados/v3/output/<AAAA-MM>/<Banco>/` (la
+  `carpeta` de cada banco en `configuracion.toml`: BBVA, Galicia, Supervielle).
 - En cada carpeta de banco del output hay un archivo del banco y uno del
-  sistema.
+  sistema (que los dos estén lo asegura quien llama, la UI).
 - Nombre: `<documento> - <nombre del original sin extensión>.xlsx`, donde
-  `<documento>` es el nombre de su carpeta en `documentos/` (`banco_bbva`,
+  `<documento>` es el `documento` de su sección del config (`banco_bbva`,
   `banco_galicia`, `banco_supervielle`, `sistema_finnegans`). Así la etapa 2
   sabe cuál es el banco y cuál el sistema.
 - Una sola hoja, "Movimientos".

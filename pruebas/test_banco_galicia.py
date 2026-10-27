@@ -3,10 +3,12 @@ from datetime import date, datetime
 
 import openpyxl
 
-from documentos.banco_galicia import reglas
 from motor.armar import armar_movimientos
+from motor.configuracion import buscar_reglas_y_carpeta
 from motor.escribir import controlar
 from motor.leer import encontrar_tabla, leer_filas
+
+reglas, _ = buscar_reglas_y_carpeta("Galicia", es_erp=False)
 
 
 def fila(fecha, descripcion, debito, credito, grupo, concepto="000000 - CONCEPTO"):
@@ -18,14 +20,14 @@ def fila(fecha, descripcion, debito, credito, grupo, concepto="000000 - CONCEPTO
 def test_convierte_a_cuatro_columnas(tmp_path):
     libro = openpyxl.Workbook()
     hoja = libro.active
-    hoja.append(reglas.ENCABEZADOS)
+    hoja.append(reglas["encabezados"])
     hoja.append(fila(datetime(2026, 9, 1), "Transf Inmed Cp", 150000, 0, "000907 - Transferencias", "907268 - TRANSF INMED CP"))
     hoja.append(fila(datetime(2026, 9, 2), "Com. Deposito De Cheque      475", 1234.56, 0, "000808 - Comisiones", "907188 - COM. DEPOSITO"))
     hoja.append(fila(datetime(2026, 9, 3), "Credito Prestamo", 0, 800000, "000083 - Pagos", "917133 - CREDITO PRESTAMO"))
     ruta = tmp_path / "extracto.xlsx"
     libro.save(ruta)
 
-    columnas, datos = encontrar_tabla(leer_filas(ruta), reglas.ENCABEZADOS)
+    columnas, datos = encontrar_tabla(leer_filas(ruta), reglas["encabezados"])
     movimientos = armar_movimientos(columnas, datos, reglas)
     resumen = controlar(movimientos, columnas, datos, reglas)
 

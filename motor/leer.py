@@ -1,7 +1,7 @@
 """Pasos 1 y 2 del proceso: abrir el archivo y encontrar la tabla de movimientos.
 
 No sabe nada de ningún banco: recibe la lista de encabezados que le pasa
-cada documento (en su reglas.py) y busca la tabla que los tiene.
+cada documento (en configuracion.toml) y busca la tabla que los tiene.
 """
 from pathlib import Path
 

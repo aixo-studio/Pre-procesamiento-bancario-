@@ -1,6 +1,6 @@
 """Paso 3 del proceso: armar Fecha, Código, Descripción y Monto para cada fila.
 
-Qué columna va a cada lugar lo dice el reglas.py de cada documento; acá solo
+Qué columna va a cada lugar lo dice configuracion.toml para cada documento; acá solo
 están las reglas que son iguales para todos.
 """
 from dataclasses import dataclass
@@ -67,15 +67,15 @@ def a_fecha(valor, formato, numero_fila: int) -> date:
         raise ValueError(f"Fila {numero_fila}: fecha que no se puede leer: {valor!r}") from None
 
 
-def es_ignorada(fila: list, columnas: dict, reglas) -> bool:
+def es_ignorada(fila: list, columnas: dict, reglas: dict) -> bool:
     """Recibe una fila. Devuelve True si el documento la marca para ignorar
-    (IGNORAR en su reglas.py), como el "Saldo Inicial".
+    ("ignorar" en configuracion.toml), como el "Saldo Inicial".
     """
-    ignorar = getattr(reglas, "IGNORAR", {})
+    ignorar = reglas.get("ignorar", {})
     return any(a_texto(fila[columnas[columna]]).strip() == valor for columna, valor in ignorar.items())
 
 
-def armar_movimientos(columnas: dict, datos: list, reglas) -> list[Movimiento]:
+def armar_movimientos(columnas: dict, datos: list, reglas: dict) -> list[Movimiento]:
     """Recibe las filas de la tabla y las reglas del documento.
     Devuelve la lista de movimientos con sus cuatro columnas.
     Saltea las filas vacías y las ignoradas; si una fila no se puede leer, frena con un error.
@@ -86,19 +86,19 @@ def armar_movimientos(columnas: dict, datos: list, reglas) -> list[Movimiento]:
             continue
         if es_ignorada(fila, columnas, reglas):
             # Una fila ignorada no puede llevar plata: si la lleva, algo está mal.
-            if a_centavos(fila[columnas[reglas.CREDITO]], numero_fila) or a_centavos(fila[columnas[reglas.DEBITO]], numero_fila):
+            if a_centavos(fila[columnas[reglas["credito"]]], numero_fila) or a_centavos(fila[columnas[reglas["debito"]]], numero_fila):
                 raise ValueError(f"Fila {numero_fila}: es una fila a ignorar pero tiene monto.")
             continue
-        credito = abs(a_centavos(fila[columnas[reglas.CREDITO]], numero_fila))
+        credito = abs(a_centavos(fila[columnas[reglas["credito"]]], numero_fila))
         # Se toma el débito sin signo y se lo pone negativo, venga como venga del banco.
-        debito = abs(a_centavos(fila[columnas[reglas.DEBITO]], numero_fila))
+        debito = abs(a_centavos(fila[columnas[reglas["debito"]]], numero_fila))
         # Cada movimiento tiene que tener crédito o débito: uno solo, nunca los dos ni ninguno.
         if (credito == 0) == (debito == 0):
             raise ValueError(f"Fila {numero_fila}: tiene que tener crédito o débito, uno solo.")
         movimientos.append(Movimiento(
-            fecha=a_fecha(fila[columnas[reglas.FECHA]], reglas.FORMATO_FECHA, numero_fila),
-            codigo=a_codigo(fila[columnas[reglas.CODIGO]], numero_fila),
-            descripcion=a_texto(fila[columnas[reglas.DESCRIPCION]]),
+            fecha=a_fecha(fila[columnas[reglas["fecha"]]], reglas.get("formato_fecha"), numero_fila),
+            codigo=a_codigo(fila[columnas[reglas["codigo"]]], numero_fila),
+            descripcion=a_texto(fila[columnas[reglas["descripcion"]]]),
             monto_centavos=credito - debito,
         ))
     return movimientos
