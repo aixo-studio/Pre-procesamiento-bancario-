@@ -31,6 +31,14 @@ Intereses, Transferencias…) y el grupo alcanza solo para reconocer los gastos
 bancarios en la etapa 2. El "Concepto" es mucho más detallado
 (`907268 - TRANSF INMED CP`) y casi lo mismo ya sale en la Descripción.
 
+## Gastos bancarios
+
+El Galicia ya agrupa sus gastos: son gasto las filas cuyo Código (el Grupo de
+Conceptos) es uno de los 3 de la lista `gastos` en `configuracion.toml`:
+`000901 - Impuestos`, `000808 - Comisiones` y `000814 - Intereses`. Se compara
+exacto. Verificado con septiembre 2026: 387 filas. Por ahora solo se
+reconocen; el extracto sigue saliendo entero.
+
 ## Condiciones
 
 - Débitos y Créditos vienen los dos en positivo, en columnas separadas; la que

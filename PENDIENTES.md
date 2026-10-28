@@ -2,12 +2,16 @@
 
 ## Abierto (en orden de prioridad)
 
+0. **Separar los gastos bancarios en una hoja aparte (APR-216).** Ya se
+   reconocen (APR-219); falta sacarlos de "Movimientos" a su propia hoja y
+   controlar que Movimientos + Gastos cierren contra el original. Cambia el
+   contrato con la etapa 2: el Conciliador tiene que aceptar la segunda hoja.
 1. **Frenar si el archivo trae más de una hoja.** Hoy se lee solo la primera,
    sin aviso. Pasó con un Galicia con una hoja "Gastos Bancarios" hecha a mano
    adelante de "Movimientos": se convirtieron 3 filas en vez de 500.
 2. **Verificar el Galicia con un extracto bajado directo del banco.** El de la
-   referencia fue guardado de nuevo desde Excel. Con este cambio quedó sin
-   verificar contra la referencia (la copia disponible tenía dos hojas).
+   referencia fue guardado de nuevo desde Excel. El 2026-10-27 se verificó la
+   rama `documento-unico` con una copia de una sola hoja: da la referencia.
 3. **Controlar que el libro del ERP sea de la cuenta del banco indicado.** Hoy
    no se controla. Se podría usar la columna "Cuenta" del libro.
 4. **Control de saldos** (saldo final − saldo inicial) para detectar un
@@ -18,6 +22,11 @@
 
 ## Hecho
 
+- 2026-10-28 — Rama `gastos-bancarios` (APR-219): cada banco tiene su lista
+  `gastos` en `configuracion.toml`; se controla que no falte, no esté vacía
+  y no tenga repetidos, y se reconoce un gasto comparando el Código exacto.
+  Verificado con septiembre: BBVA 836, Galicia 387, Supervielle 89. La
+  salida no cambia (los 6 resultados son idénticos a los anteriores).
 - 2026-10-26 — Rama `documento-unico`: cada corrida convierte un archivo
   (mes, banco, ruta y `--erp`). Las reglas pasan a `configuracion.toml`. Se
   sacan el recorrido de carpetas y el reconocimiento entre todos los

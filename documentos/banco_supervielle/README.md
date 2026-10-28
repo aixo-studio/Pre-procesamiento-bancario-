@@ -21,6 +21,14 @@ trae la cuenta y la fecha de descarga (`Movimientos_Supervielle_<cuenta>_<fecha>
 | Descripción | Detalle          | Tal cual (`Número Cheque: 2075`). Puede venir vacía. |
 | Monto       | Crédito y Débito | Crédito en positivo, débito en negativo.             |
 
+## Gastos bancarios
+
+El Supervielle no trae un código: son gasto las filas cuyo Código (el texto
+del Concepto) es uno de los 8 de la lista `gastos` en `configuracion.toml`
+(`IVA`, `Impuesto Débitos y Créditos/DB`, …). Se compara exacto, con
+mayúsculas y acentos. Verificado con septiembre 2026: 89 filas. Por ahora solo
+se reconocen; el extracto sigue saliendo entero.
+
 ## Condiciones
 
 - Débito y Crédito vienen los dos en positivo, en columnas separadas; la que no

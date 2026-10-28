@@ -13,6 +13,7 @@
 #   formato_fecha  cómo viene escrita la fecha si viene como texto; si falta, viene como fecha de Excel
 #   seguidas       (opcional) columnas que tienen que estar juntas y en ese orden
 #   ignorar        (opcional) filas que no son movimientos: {columna = "texto"}
+#   gastos         (solo bancos) los valores del Código que son gasto bancario; se comparan exactos
 
 [bancos.BBVA]
 carpeta = "BBVA"
@@ -26,6 +27,10 @@ codigo = "Codigo"           # el código del tipo de movimiento, ej. 236; viene 
 descripcion = "Detalle"
 credito = "Crédito"
 debito = "Débito"           # viene en negativo; el motor lo toma sin signo
+# Gastos bancarios: los códigos que son gasto. Lista armada por la persona que
+# concilia. Verificado con septiembre 2026: 836 filas.
+gastos = ["015", "030", "037", "098", "101", "102", "122", "236", "241", "286",
+          "392", "521", "530", "543", "550", "589", "609", "758", "798", "882"]
 
 [bancos.Galicia]
 carpeta = "Galicia"
@@ -39,6 +44,8 @@ codigo = "Grupo de Conceptos"  # el grupo del movimiento, ej. 000901 - Impuestos
 descripcion = "Descripción"
 credito = "Créditos"
 debito = "Débitos"          # viene en positivo; el motor lo pone negativo
+# Gastos bancarios: el banco ya agrupa sus gastos. Verificado con septiembre 2026: 387 filas.
+gastos = ["000901 - Impuestos", "000808 - Comisiones", "000814 - Intereses"]
 
 [bancos.Supervielle]
 carpeta = "Supervielle"
@@ -50,6 +57,11 @@ codigo = "Concepto"         # el tipo de movimiento, ej. Impuesto Débitos y Cr�
 descripcion = "Detalle"
 credito = "Crédito"
 debito = "Débito"           # viene en positivo; el motor lo pone negativo
+# Gastos bancarios: el banco no trae código, se usa el texto del Concepto.
+# Verificado con septiembre 2026: 89 filas.
+gastos = ["Impuesto Débitos y Créditos/DB", "IVA", "Cobro Percepción IIBB",
+          "Percepción I.V.A. RG. 3337", "Intereses de Sobregiro", "Contras.Ints.Sobreg.",
+          "Comisión Mantenimiento Cuenta", "IMPUESTO A LOS SELLOS"]
 
 [erp]
 documento = "sistema_finnegans"

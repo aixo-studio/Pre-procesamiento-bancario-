@@ -108,7 +108,8 @@ Cómo se corre:
   que llama la UI (`convertir_documento`). Recibe mes, banco, archivo y si es
   el ERP, convierte y devuelve el resumen.
 - `configuracion.toml` tiene las reglas de cada documento: una sección por
-  banco (reglas del extracto y carpeta de salida) y una para el ERP.
+  banco (reglas del extracto, carpeta de salida y lista de gastos bancarios)
+  y una para el ERP.
 - `motor/` tiene lo que es igual para todos los documentos: traer las reglas
   del config, leer, armar las cuatro columnas, controlar y escribir. No lleva
   nada propio de un banco.
@@ -141,8 +142,12 @@ Cómo se corre:
 ## Reglas del producto
 
 - Sin IA. Todo lo decide el código con reglas fijas.
-- Cada documento sale entero, en una sola hoja "Movimientos", con los gastos
-  bancarios incluidos. Separar gastos no es de esta etapa.
+- Por ahora cada documento sale entero, en una sola hoja "Movimientos", con
+  los gastos bancarios incluidos. Se decidió separarlos en esta etapa, en una
+  hoja aparte (APR-216); hasta que eso se haga, la salida no cambia.
+- Un gasto bancario se reconoce porque su Código está en la lista `gastos` de
+  su banco en `configuracion.toml`, comparado exacto. Cada banco tiene que
+  tener su lista, no vacía y sin repetidos; si no, el programa frena.
 - Qué columna del original va a cada columna de la salida lo define la
   sección de cada documento en `configuracion.toml`, y nada más. No se agregan
   columnas a la Descripción.
@@ -182,8 +187,8 @@ en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
 - Fila 1, el encabezado: Fecha · Código · Descripción · Monto, igual en los
   cuatro documentos. Debajo, un movimiento por fila, en el orden del original.
 - El Código es el valor puro de la columna que identifica el tipo de
-  movimiento en cada documento, sin mezclar nada. La etapa 2 lo usa para
-  reconocer los gastos bancarios con una lista por banco:
+  movimiento en cada documento, sin mezclar nada. Con él se reconocen los
+  gastos bancarios, con la lista de cada banco en `configuracion.toml`:
 
       banco_bbva          Codigo               ej. 236
       banco_galicia       Grupo de Conceptos   ej. 000901 - Impuestos

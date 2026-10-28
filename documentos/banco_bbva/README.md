@@ -30,6 +30,14 @@ IVA) y alcanza solo para reconocer los gastos bancarios en la etapa 2. El
 "Concepto" mezcla el tipo con otros datos (`TRANSFERENCI 20111111112` trae el
 CUIT), así que no sirve para comparar contra una lista.
 
+## Gastos bancarios
+
+Son gasto las filas cuyo Código está en la lista `gastos` del BBVA en
+`configuracion.toml`: 20 códigos (`015`, `030`, … `236` es el IVA, … `882`).
+La lista la armó la persona que concilia. Se compara exacto, con los ceros.
+Verificado con septiembre 2026: 836 filas. Por ahora solo se reconocen; el
+extracto sigue saliendo entero.
+
 ## Condiciones
 
 - El débito ya viene con signo menos. El programa lo toma sin signo y lo pone

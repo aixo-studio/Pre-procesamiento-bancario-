@@ -59,7 +59,8 @@ aunque haya otro instalado, por ejemplo el de conda).
 convertir.py           la puerta de entrada: la terminal y la función que llama la UI
 configuracion.toml     las reglas de cada banco y del ERP (para el programa)
 motor/                 lo que es igual para todos los documentos
-  configuracion.py     trae del config las reglas y la carpeta que corresponden
+  configuracion.py     trae del config las reglas y la carpeta, controla la lista de
+                       gastos de cada banco y reconoce si un Código es gasto
   leer.py              abre el Excel y encuentra la tabla
   armar.py             arma Fecha, Código, Descripción y Monto
   escribir.py          controla filas y suma, y escribe el Excel
@@ -69,7 +70,8 @@ documentos/            un README.md por documento: cómo viene y cómo se convie
   banco_galicia/
   banco_supervielle/
   sistema_finnegans/     el libro del ERP (sirve para la cuenta de cualquier banco)
-pruebas/               una prueba por documento y una de la entrada, con datos inventados
+pruebas/               una prueba por documento, una de la entrada y una de los gastos,
+                       con datos inventados
 CLAUDE.md              cómo se trabaja en este repo
 PENDIENTES.md          lo abierto y lo hecho
 ```
@@ -93,6 +95,9 @@ main()  (convertir.py)
     │      Lee configuracion.toml. Si el banco no está, frena.
     │      Devuelve las reglas (las del ERP si es --erp, si no las del banco)
     │      y la carpeta de salida del banco.
+    │      └─ controlar_gastos()  si es un extracto de banco, revisa su lista de
+    │                             gastos; si falta, está vacía o tiene repetidos,
+    │                             frena
     │
     ├─► 3. borrar_salidas()  (motor/carpetas.py)
     │      Borra el resultado anterior de ese documento, si existía.
@@ -206,9 +211,11 @@ ruta fija con el usuario de la computadora. Límite: el repo y "conciliacion
 resultados" tienen que estar en la misma carpeta. Los originales pueden estar
 en cualquier lado.
 
-**13. Los gastos bancarios salen incluidos.**
-Por qué: separarlos es trabajo de la etapa 2, con una lista por banco. Así esta
-etapa entrega el documento entero y la suma cierra contra el original.
+**13. Por ahora los gastos bancarios salen incluidos.**
+Hoy el extracto sale entero, con los gastos adentro, y la suma cierra contra el
+original. Se decidió (2026-10-27) separarlos en esta etapa, en una hoja aparte
+del mismo Excel (APR-216). Ese cambio todavía no está: cuando esté, cambia el
+contrato con la etapa 2. Reconocerlos ya se puede (decisión 16).
 
 **14. La segunda columna es "Código", no "Concepto".**
 Por qué: cada banco identifica sus gastos con una columna distinta (BBVA:
@@ -233,6 +240,25 @@ anterior: había que tocar dos lugares), JSON (no admite comentarios) y Python
 (es código, no configuración). Límite: el motor solo sabe leer crédito y
 débito en columnas separadas; un banco con una sola columna de monto
 necesitaría un cambio en el `motor/`.
+
+**16. Los gastos bancarios se reconocen con una lista por banco en `configuracion.toml`.**
+Cada banco tiene una línea `gastos` con los valores del Código que son gasto.
+Una fila es gasto si su Código está en esa lista, comparado exacto ("015" no
+es "15", "IVA" no es "iva"). Funciona porque el Código de cada banco ya es la
+columna con la que ese banco identifica sus gastos (decisión 14). Las listas
+las armó la persona que concilia; verificado con septiembre: BBVA 836,
+Galicia 387, Supervielle 89, igual que la separación a mano. El ERP no tiene
+lista: no tiene gastos bancarios. Antes de usar la lista de un banco, el
+programa frena si falta, si está vacía o si tiene un código repetido, para
+que un error al editarla a mano no pase en silencio.
+Por qué: la lista es de cada banco y cambia poco; en el mismo archivo que sus
+otras reglas queda versionada en git y se revisa en un PR. Se descartó: un
+archivo aparte (`bancos.json` en la etapa 2, era lo anterior: la información
+de un banco quedaba en dos repos), reglas por texto ("si dice IMPUESTO") que
+adivinan, e IA. Límites: un gasto con un código nuevo, que no está en la
+lista, no se reconoce y queda como movimiento común; si el banco cambia cómo
+escribe un código (un espacio, una mayúscula), pasa lo mismo. Por ahora solo
+se reconoce: separarlos en el Excel es el APR-216.
 
 ## Documentos disponibles
 
