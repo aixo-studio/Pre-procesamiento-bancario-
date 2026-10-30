@@ -2,9 +2,10 @@
 
 ## Abierto (en orden de prioridad)
 
-0. **Controlar las dos hojas contra el original (APR-223).** Hoy el control
-   de filas y suma se hace antes de separar; tiene que comparar el original
-   contra Movimientos + Gastos bancarios.
+0. **Controlar que al separar queden las mismas filas, no solo la misma
+   cantidad y suma.** Hoy, si al separar se perdiera una fila y se duplicara
+   otra con el mismo monto, el control no lo vería. La separación no lo puede
+   producir, así que por ahora queda como límite conocido (decisión 5).
 0. **El Conciliador tiene que aceptar la segunda hoja.** Hoy rechaza los
    archivos con más de una hoja: con el APR-222 el extracto de un banco sale
    con dos. Va en el repo del Conciliador.
@@ -24,6 +25,11 @@
 
 ## Hecho
 
+- 2026-10-30 — Rama `controlar-separacion` (APR-223): la separación pasa a
+  hacerse antes del control, y el control compara el original contra lo
+  armado y contra Movimientos + Gastos, en filas y suma, diciendo en qué paso
+  falló. Verificado con septiembre: los resultados son idénticos a los del
+  APR-222.
 - 2026-10-30 — Rama `separar-gastos` (APR-222): el extracto de un banco sale
   con dos hojas, "Movimientos" y "Gastos bancarios" (siempre las dos); el
   libro del ERP con una. Verificado con septiembre: mismas filas que antes

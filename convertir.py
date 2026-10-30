@@ -25,10 +25,12 @@ def pesos(centavos: int) -> str:
     return f"{centavos / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def limpiar_archivo(ruta_archivo: Path, reglas: dict, que_se_espera: str) -> tuple[list, dict]:
-    """Recibe un archivo, las reglas para limpiarlo y qué documento se espera (para el error).
-    Lo abre, verifica sus encabezados, arma las cuatro columnas y controla filas y suma.
-    Devuelve los movimientos y el resumen. Si algo no cierra, frena con un error.
+def limpiar_archivo(ruta_archivo: Path, reglas: dict, que_se_espera: str, es_erp: bool) -> tuple[list, list, dict]:
+    """Recibe un archivo, sus reglas, qué documento se espera (para el error) y si es
+    el libro del ERP. Lo abre, verifica sus encabezados, arma las cuatro columnas,
+    separa los gastos bancarios (solo en el extracto de un banco) y controla todo
+    contra el original. Devuelve los movimientos, los gastos (None en el ERP) y el
+    resumen. Si algo no cierra, frena con un error.
     """
     # Un archivo que falta, está dañado o no es Excel de verdad no se puede abrir.
     try:
@@ -40,8 +42,15 @@ def limpiar_archivo(ruta_archivo: Path, reglas: dict, que_se_espera: str) -> tup
         columnas, datos = encontrar_tabla(filas, reglas["encabezados"], reglas.get("seguidas"))
     except ValueError as error:
         raise ValueError(f"no es {que_se_espera}. {error}") from None
-    movimientos = armar_movimientos(columnas, datos, reglas)
-    return movimientos, controlar(movimientos, columnas, datos, reglas)
+    armados = armar_movimientos(columnas, datos, reglas)
+    # El libro del ERP no tiene gastos bancarios: no se separa.
+    if es_erp:
+        return armados, None, controlar(armados, columnas, datos, reglas)
+    # El extracto de un banco se separa antes de controlar, así el control revisa las dos hojas.
+    movimientos, gastos = separar_gastos(armados, reglas)
+    resumen = controlar(armados, columnas, datos, reglas, movimientos, gastos)
+    resumen["movimientos"], resumen["gastos"] = len(movimientos), len(gastos)
+    return movimientos, gastos, resumen
 
 
 def convertir_documento(ruta_archivo: Path, banco: str, es_erp: bool, mes: str,
@@ -61,17 +70,12 @@ def convertir_documento(ruta_archivo: Path, banco: str, es_erp: bool, mes: str,
     borrados = borrar_salidas(carpeta_salida, reglas["documento"])
     que_se_espera = "el libro del ERP" if es_erp else f"un extracto de {banco}"
     try:
-        movimientos, resumen = limpiar_archivo(ruta_archivo, reglas, que_se_espera)
+        movimientos, gastos, resumen = limpiar_archivo(ruta_archivo, reglas, que_se_espera, es_erp)
     except ValueError as error:
         aviso_borrados = "".join(f" Se borró el resultado anterior: {nombre}." for nombre in borrados)
         raise ValueError(f"{error}{aviso_borrados}") from None
-    # Aviso de fechas de otro mes, sobre todas las filas: no frena y no las saca.
-    resumen["fuera_del_mes"] = fechas_fuera_del_mes(movimientos, mes)
-    # El extracto de un banco se separa en movimientos y gastos; el libro del ERP no.
-    gastos = None
-    if not es_erp:
-        movimientos, gastos = separar_gastos(movimientos, reglas)
-        resumen["movimientos"], resumen["gastos"] = len(movimientos), len(gastos)
+    # Aviso de fechas de otro mes, sobre todas las filas (las dos hojas): no frena y no las saca.
+    resumen["fuera_del_mes"] = fechas_fuera_del_mes(movimientos + (gastos or []), mes)
     carpeta_salida.mkdir(parents=True, exist_ok=True)
     resumen["ruta_salida"] = ruta_salida(carpeta_salida, reglas["documento"], ruta_archivo)
     escribir_excel(movimientos, resumen["ruta_salida"], gastos)

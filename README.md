@@ -73,8 +73,8 @@ documentos/            un README.md por documento: cómo viene y cómo se convie
   banco_galicia/
   banco_supervielle/
   sistema_finnegans/     el libro del ERP (sirve para la cuenta de cualquier banco)
-pruebas/               una prueba por documento, una de la entrada, una de los gastos
-                       y una de la separación,
+pruebas/               una prueba por documento, una de la entrada, una de los gastos,
+                       una de la separación y una del control,
                        con datos inventados
 CLAUDE.md              cómo se trabaja en este repo
 PENDIENTES.md          lo abierto y lo hecho
@@ -122,20 +122,23 @@ main()  (convertir.py)
     │      │    │                    viene como número, frena (perdió sus ceros)
     │      │    └─ a_texto()         toma la Descripción tal cual
     │      │    → un Movimiento por fila: fecha, código, descripción, monto
-    │      └─ controlar()            (motor/escribir.py) vuelve a contar filas y a
-    │                                sumar desde el original; si no cierra, frena
+    │      ├─ separar_gastos()       (motor/separar.py) solo en el extracto de un
+    │      │                         banco: recorre las filas una vez y manda cada
+    │      │                         una a un solo lado: a gastos si es_gasto()
+    │      │                         (motor/configuracion.py) dice que sí, a
+    │      │                         movimientos si no. Cada lado mantiene el orden
+    │      │                         del original. Con --erp no se separa.
+    │      └─ controlar()            (motor/escribir.py) cuenta filas y suma desde el
+    │                                original y compara dos veces: contra lo armado
+    │                                y contra movimientos + gastos. Si no cierra,
+    │                                frena y dice en qué paso (al armar o al separar)
     │      Si frena ──► no se escribe nada y el error dice qué se borró.
     │
     ├─► 5. fechas_fuera_del_mes()  (motor/carpetas.py)
-    │      Cuenta filas con fecha de otro mes, sobre todas las filas.
+    │      Cuenta filas con fecha de otro mes, sobre las dos hojas juntas.
     │      No frena ni las saca.
     │
-    ├─► 6. separar_gastos()  (motor/separar.py)   solo en el extracto de un banco
-    │      Recorre las filas una vez y manda cada una a un solo lado: a gastos
-    │      si es_gasto() (motor/configuracion.py) dice que sí, a movimientos si no.
-    │      Cada lado mantiene el orden del original. Con --erp no se separa.
-    │
-    └─► 7. ruta_salida() + escribir_excel()  (motor/carpetas.py, motor/escribir.py)
+    └─► 6. ruta_salida() + escribir_excel()  (motor/carpetas.py, motor/escribir.py)
            Escribe "output/<mes>/<carpeta del banco>/<documento> - <original>.xlsx".
            escribir_hoja() escribe cada hoja con las cuatro columnas:
            "Movimientos" y, en un banco, "Gastos bancarios" (aunque esté vacía).
@@ -178,8 +181,20 @@ la suma es exacta. Se descartó: sumar con decimales. La etapa 2 tiene que
 hacer lo mismo al leer (está en el contrato del CLAUDE.md).
 
 **5. Se controlan filas y suma contra el original; si no cierra, no se genera.**
-Por qué: ninguna fila se puede perder en silencio. Límite importante: el
-control compara contra el mismo archivo que entró. Si el banco entrega un
+El original se cuenta y se suma directo de las filas del Excel, sin pasar por
+el resto del programa, y se compara dos veces: contra lo armado (paso armar) y,
+en un banco, contra Movimientos + Gastos bancarios (paso separar). En cada una
+se miran filas y suma. Si algo no cierra, el error dice en qué paso falló. Es
+una sola función de control, después de separar y antes de escribir.
+Por qué: ninguna fila se puede perder en silencio, y si se pierde hay que
+saber dónde. Se descartó: controlar solo al final contra las dos hojas (no
+dice en qué paso falló) y un control aparte después de separar (compararía
+contra lo armado y no contra el original, y repite el manejo de errores).
+Límites: filas y suma no detectan que al separar se pierda una fila y se
+duplique otra con el mismo monto (las dos cuentas dan igual). La separación
+manda cada fila a un solo lado, así que no lo puede producir, pero el control
+no lo vería. No detecta un gasto que no se separó (decisión 17). Límite
+importante: el control compara contra el mismo archivo que entró. Si el banco entrega un
 extracto al que le faltan días, el control da bien igual. Para detectarlo hace
 falta un control de saldos (saldo final − saldo inicial), que todavía no está.
 
@@ -288,9 +303,9 @@ contrato y obliga a la etapa 2 a filtrar), un archivo aparte para los gastos
 hoja, a veces dos). Verificado con septiembre: Movimientos + Gastos tienen las
 mismas filas que antes (BBVA 609 + 836, Galicia 113 + 387, Supervielle 83 +
 89), y la hoja de gastos tiene exactamente las filas que la persona que
-concilia separó a mano. Límites: el control de filas y suma todavía se hace
-antes de separar (pasa a controlar las dos hojas en el APR-223); un gasto con
-un código que no está en la lista queda en "Movimientos". Cambia el contrato:
+concilia separó a mano. Límites: un gasto con un código que no está en la
+lista queda en "Movimientos", y el control lo da por bueno (las filas y la
+suma cierran igual). Cambia el contrato:
 el Conciliador tiene que aceptar la segunda hoja.
 
 ## Documentos disponibles

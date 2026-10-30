@@ -11,24 +11,46 @@ from openpyxl.styles import Font
 from motor.armar import Movimiento, a_centavos, es_ignorada, esta_vacia
 
 
-def controlar(movimientos: list[Movimiento], columnas: dict, datos: list, reglas: dict) -> dict:
-    """Recibe los movimientos armados y las filas originales.
-    Vuelve a contar filas y a sumar créditos y débitos directo del original, y los
-    compara con los movimientos. Si algo no cierra, frena con un error.
+def controlar(armados: list[Movimiento], columnas: dict, datos: list, reglas: dict,
+              movimientos: list[Movimiento] = None, gastos: list[Movimiento] = None) -> dict:
+    """Recibe las filas armadas, las filas originales y, si es un extracto de banco,
+    los movimientos y los gastos ya separados. Cuenta filas y suma créditos y
+    débitos directo del original, y lo compara dos veces: contra lo armado (paso
+    armar) y contra movimientos + gastos (paso separar). Sin separación (el libro
+    del ERP), todo lo armado cuenta como movimientos. Si algo no cierra, frena
+    con un error que dice en qué paso.
     Devuelve el resumen: filas, filas ignoradas, créditos, débitos y suma (en centavos).
     """
+    if movimientos is None:
+        movimientos, gastos = armados, []
     con_datos = [(numero, fila) for numero, fila in datos if not esta_vacia(fila)]
     filas_original = [(numero, fila) for numero, fila in con_datos if not es_ignorada(fila, columnas, reglas)]
     ignoradas = len(con_datos) - len(filas_original)
     creditos = sum(abs(a_centavos(fila[columnas[reglas["credito"]]], numero)) for numero, fila in filas_original)
     debitos = sum(abs(a_centavos(fila[columnas[reglas["debito"]]], numero)) for numero, fila in filas_original)
-    suma = sum(movimiento.monto_centavos for movimiento in movimientos)
-    if len(movimientos) != len(filas_original):
-        raise ValueError(f"Se perdieron filas: salida {len(movimientos)}, original {len(filas_original)}.")
-    if suma != creditos - debitos:
-        raise ValueError(f"La suma no cierra: salida {suma / 100}, original {(creditos - debitos) / 100}.")
-    return {"filas": len(movimientos), "ignoradas": ignoradas,
+    suma_original = creditos - debitos
+    # Paso armar: lo armado tiene que dar lo mismo que el original.
+    suma = sumar(armados)
+    if len(armados) != len(filas_original):
+        raise ValueError(f"Se perdieron filas al armar: armadas {len(armados)}, original {len(filas_original)}.")
+    if suma != suma_original:
+        raise ValueError(f"La suma no cierra al armar: armado {suma / 100}, original {suma_original / 100}.")
+    # Paso separar: las dos hojas juntas tienen que dar lo mismo que el original.
+    # Mirar filas y suma juntas atrapa también una fila perdida y otra duplicada con el mismo monto.
+    filas_separadas = len(movimientos) + len(gastos)
+    if filas_separadas != len(filas_original):
+        raise ValueError(f"Se perdieron filas al separar: Movimientos {len(movimientos)} + Gastos {len(gastos)} = "
+                         f"{filas_separadas}, original {len(filas_original)}.")
+    if sumar(movimientos) + sumar(gastos) != suma_original:
+        raise ValueError(f"La suma no cierra al separar: Movimientos {sumar(movimientos) / 100} + "
+                         f"Gastos {sumar(gastos) / 100}, original {suma_original / 100}.")
+    return {"filas": len(armados), "ignoradas": ignoradas,
             "creditos": creditos, "debitos": debitos, "suma": suma}
+
+
+def sumar(movimientos: list[Movimiento]) -> int:
+    """Recibe una lista de movimientos. Devuelve la suma de sus montos, en centavos."""
+    return sum(movimiento.monto_centavos for movimiento in movimientos)
 
 
 def escribir_excel(movimientos: list[Movimiento], ruta: Path, gastos: list[Movimiento] = None) -> None:

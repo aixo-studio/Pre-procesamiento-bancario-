@@ -157,8 +157,9 @@ Cómo se corre:
   coinciden con las reglas de ese documento, el archivo no se convierte y se
   dice por qué.
 - Ninguna fila se pierde en silencio. La cantidad de filas y la suma de Monto
-  tienen que cerrar contra el original; si no cierran, no se genera el archivo
-  y se dice por qué.
+  tienen que cerrar contra el original dos veces: lo armado y, en un banco,
+  Movimientos + Gastos bancarios. Si no cierran, no se genera el archivo y se
+  dice por qué y en qué paso (al armar o al separar).
 - Si un archivo no se puede convertir, se borra su salida anterior (si
   existía) y el resumen lo dice. Así la etapa 2 nunca cruza un resultado viejo.
 - El saldo inicial no es un movimiento: se saca siempre. Si un documento lo
