@@ -26,8 +26,8 @@ trae la cuenta y la fecha de descarga (`Movimientos_Supervielle_<cuenta>_<fecha>
 El Supervielle no trae un código: son gasto las filas cuyo Código (el texto
 del Concepto) es uno de los 8 de la lista `gastos` en `configuracion.toml`
 (`IVA`, `Impuesto Débitos y Créditos/DB`, …). Se compara exacto, con
-mayúsculas y acentos. Verificado con septiembre 2026: 89 filas. Por ahora solo
-se reconocen; el extracto sigue saliendo entero.
+mayúsculas y acentos. Verificado con septiembre 2026: 89 filas. Salen en la hoja
+"Gastos bancarios"; el resto queda en "Movimientos".
 
 ## Condiciones
 

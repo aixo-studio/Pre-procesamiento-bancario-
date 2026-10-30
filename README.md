@@ -44,8 +44,10 @@ python convertir.py 2026-09 BBVA "ruta/libro.xlsx" --erp      el libro del ERP d
 Cada corrida convierte un archivo: el mes, el banco, la ruta y, si es el libro
 del ERP, `--erp`. El resultado queda como
 `output/<mes>/<carpeta del banco>/<documento> - <nombre del original>.xlsx`,
-con una sola hoja, "Movimientos". En pantalla sale la cantidad de filas y la
-suma, controladas contra el original. Si algo no cierra, no se genera, se
+El extracto de un banco sale con dos hojas: "Movimientos" (sin gastos
+bancarios) y "Gastos bancarios". El libro del ERP sale con una sola,
+"Movimientos". En pantalla sale la cantidad de filas y la suma, controladas
+contra el original, y en un banco cuántas filas quedaron en cada hoja. Si algo no cierra, no se genera, se
 borra el resultado anterior de ese documento y se dice por qué.
 
 La UI llama a `convertir_documento()` (en `convertir.py`) con los mismos datos.
@@ -63,14 +65,16 @@ motor/                 lo que es igual para todos los documentos
                        gastos de cada banco y reconoce si un Código es gasto
   leer.py              abre el Excel y encuentra la tabla
   armar.py             arma Fecha, Código, Descripción y Monto
-  escribir.py          controla filas y suma, y escribe el Excel
+  separar.py           separa los gastos bancarios del resto (solo bancos)
+  escribir.py          controla filas y suma, y escribe el Excel (una o dos hojas)
   carpetas.py          nombra el resultado, borra el viejo y avisa fechas de otro mes
 documentos/            un README.md por documento: cómo viene y cómo se convierte (para personas)
   banco_bbva/
   banco_galicia/
   banco_supervielle/
   sistema_finnegans/     el libro del ERP (sirve para la cuenta de cualquier banco)
-pruebas/               una prueba por documento, una de la entrada y una de los gastos,
+pruebas/               una prueba por documento, una de la entrada, una de los gastos
+                       y una de la separación,
                        con datos inventados
 CLAUDE.md              cómo se trabaja en este repo
 PENDIENTES.md          lo abierto y lo hecho
@@ -122,14 +126,22 @@ main()  (convertir.py)
     │                                sumar desde el original; si no cierra, frena
     │      Si frena ──► no se escribe nada y el error dice qué se borró.
     │
-    ├─► 5. ruta_salida() + escribir_excel()  (motor/carpetas.py, motor/escribir.py)
-    │      Escribe "output/<mes>/<carpeta del banco>/<documento> - <original>.xlsx"
-    │      con la hoja "Movimientos" y las cuatro columnas.
+    ├─► 5. fechas_fuera_del_mes()  (motor/carpetas.py)
+    │      Cuenta filas con fecha de otro mes, sobre todas las filas.
+    │      No frena ni las saca.
     │
-    └─► 6. fechas_fuera_del_mes()  (motor/carpetas.py)
-           Cuenta filas con fecha de otro mes. No frena ni las saca.
+    ├─► 6. separar_gastos()  (motor/separar.py)   solo en el extracto de un banco
+    │      Recorre las filas una vez y manda cada una a un solo lado: a gastos
+    │      si es_gasto() (motor/configuracion.py) dice que sí, a movimientos si no.
+    │      Cada lado mantiene el orden del original. Con --erp no se separa.
+    │
+    └─► 7. ruta_salida() + escribir_excel()  (motor/carpetas.py, motor/escribir.py)
+           Escribe "output/<mes>/<carpeta del banco>/<documento> - <original>.xlsx".
+           escribir_hoja() escribe cada hoja con las cuatro columnas:
+           "Movimientos" y, en un banco, "Gastos bancarios" (aunque esté vacía).
 
-Al final, main() muestra filas, suma, dónde quedó y el aviso de otro mes.
+Al final, main() muestra filas, suma, el reparto entre las dos hojas (en un
+banco), dónde quedó y el aviso de otro mes.
 ```
 
 ## Decisiones
@@ -211,11 +223,9 @@ ruta fija con el usuario de la computadora. Límite: el repo y "conciliacion
 resultados" tienen que estar en la misma carpeta. Los originales pueden estar
 en cualquier lado.
 
-**13. Por ahora los gastos bancarios salen incluidos.**
-Hoy el extracto sale entero, con los gastos adentro, y la suma cierra contra el
-original. Se decidió (2026-10-27) separarlos en esta etapa, en una hoja aparte
-del mismo Excel (APR-216). Ese cambio todavía no está: cuando esté, cambia el
-contrato con la etapa 2. Reconocerlos ya se puede (decisión 16).
+**13. Los gastos bancarios se separan en esta etapa, en una hoja aparte.**
+Se decidió el 2026-10-27; antes salían incluidos y los separaba la etapa 2.
+Cómo se reconocen está en la decisión 16 y cómo se separan en la 17.
 
 **14. La segunda columna es "Código", no "Concepto".**
 Por qué: cada banco identifica sus gastos con una columna distinta (BBVA:
@@ -257,8 +267,31 @@ archivo aparte (`bancos.json` en la etapa 2, era lo anterior: la información
 de un banco quedaba en dos repos), reglas por texto ("si dice IMPUESTO") que
 adivinan, e IA. Límites: un gasto con un código nuevo, que no está en la
 lista, no se reconoce y queda como movimiento común; si el banco cambia cómo
-escribe un código (un espacio, una mayúscula), pasa lo mismo. Por ahora solo
-se reconoce: separarlos en el Excel es el APR-216.
+escribe un código (un espacio, una mayúscula), pasa lo mismo. Cómo se separan:
+decisión 17.
+
+**17. El extracto de un banco sale con dos hojas: "Movimientos" y "Gastos bancarios".**
+Después de armar las filas, cada una va a una sola hoja: a "Gastos bancarios"
+si es gasto (decisión 16), a "Movimientos" si no. Se recorren una sola vez, así
+una fila no puede quedar en las dos ni en ninguna, y cada hoja mantiene el
+orden del original. Las dos hojas tienen las mismas cuatro columnas y el mismo
+formato (las escribe la misma función). La hoja de gastos está siempre,
+aunque en el mes no haya ninguno: así el archivo de un banco tiene siempre dos
+hojas y la etapa 2 no tiene que adivinar. El libro del ERP sale con una sola
+hoja: no tiene gastos bancarios. El aviso de fechas de otro mes cuenta todas
+las filas, las dos hojas juntas.
+Por qué: la etapa 2 cruza solo "Movimientos" y tiene los gastos aparte para el
+control final; en un mismo archivo, la información de un banco queda junta.
+Se descartó: una columna que marque cada fila (cambia las cuatro columnas del
+contrato y obliga a la etapa 2 a filtrar), un archivo aparte para los gastos
+(un banco quedaría en dos archivos) y no crear la hoja vacía (a veces una
+hoja, a veces dos). Verificado con septiembre: Movimientos + Gastos tienen las
+mismas filas que antes (BBVA 609 + 836, Galicia 113 + 387, Supervielle 83 +
+89), y la hoja de gastos tiene exactamente las filas que la persona que
+concilia separó a mano. Límites: el control de filas y suma todavía se hace
+antes de separar (pasa a controlar las dos hojas en el APR-223); un gasto con
+un código que no está en la lista queda en "Movimientos". Cambia el contrato:
+el Conciliador tiene que aceptar la segunda hoja.
 
 ## Documentos disponibles
 

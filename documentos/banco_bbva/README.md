@@ -35,8 +35,8 @@ CUIT), así que no sirve para comparar contra una lista.
 Son gasto las filas cuyo Código está en la lista `gastos` del BBVA en
 `configuracion.toml`: 20 códigos (`015`, `030`, … `236` es el IVA, … `882`).
 La lista la armó la persona que concilia. Se compara exacto, con los ceros.
-Verificado con septiembre 2026: 836 filas. Por ahora solo se reconocen; el
-extracto sigue saliendo entero.
+Verificado con septiembre 2026: 836 filas. Salen en la hoja
+"Gastos bancarios"; el resto queda en "Movimientos".
 
 ## Condiciones
 

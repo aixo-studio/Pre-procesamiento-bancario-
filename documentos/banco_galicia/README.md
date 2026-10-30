@@ -36,8 +36,8 @@ bancarios en la etapa 2. El "Concepto" es mucho más detallado
 El Galicia ya agrupa sus gastos: son gasto las filas cuyo Código (el Grupo de
 Conceptos) es uno de los 3 de la lista `gastos` en `configuracion.toml`:
 `000901 - Impuestos`, `000808 - Comisiones` y `000814 - Intereses`. Se compara
-exacto. Verificado con septiembre 2026: 387 filas. Por ahora solo se
-reconocen; el extracto sigue saliendo entero.
+exacto. Verificado con septiembre 2026: 387 filas. Salen en la hoja
+"Gastos bancarios"; el resto queda en "Movimientos".
 
 ## Condiciones
 

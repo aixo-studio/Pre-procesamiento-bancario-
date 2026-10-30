@@ -142,9 +142,10 @@ Cómo se corre:
 ## Reglas del producto
 
 - Sin IA. Todo lo decide el código con reglas fijas.
-- Por ahora cada documento sale entero, en una sola hoja "Movimientos", con
-  los gastos bancarios incluidos. Se decidió separarlos en esta etapa, en una
-  hoja aparte (APR-216); hasta que eso se haga, la salida no cambia.
+- El extracto de un banco sale con dos hojas: "Movimientos" (sin gastos
+  bancarios) y "Gastos bancarios", siempre las dos, aunque una quede vacía.
+  Cada fila va a una sola hoja, en el orden del original. El libro del ERP
+  sale con una sola hoja, "Movimientos".
 - Un gasto bancario se reconoce porque su Código está en la lista `gastos` de
   su banco en `configuracion.toml`, comparado exacto. Cada banco tiene que
   tener su lista, no vacía y sin repetidos; si no, el programa frena.
@@ -183,9 +184,12 @@ en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
   `<documento>` es el `documento` de su sección del config (`banco_bbva`,
   `banco_galicia`, `banco_supervielle`, `sistema_finnegans`). Así la etapa 2
   sabe cuál es el banco y cuál el sistema.
-- Una sola hoja, "Movimientos".
-- Fila 1, el encabezado: Fecha · Código · Descripción · Monto, igual en los
-  cuatro documentos. Debajo, un movimiento por fila, en el orden del original.
+- El extracto de un banco: dos hojas, "Movimientos" (sin gastos bancarios) y
+  "Gastos bancarios", siempre las dos aunque una quede vacía. El libro del
+  ERP: una sola hoja, "Movimientos". (Cambio del 2026-10-30, APR-222: antes
+  todo salía en una sola hoja.)
+- Fila 1 de cada hoja, el encabezado: Fecha · Código · Descripción · Monto,
+  igual en los cuatro documentos. Debajo, un movimiento por fila, en el orden del original.
 - El Código es el valor puro de la columna que identifica el tipo de
   movimiento en cada documento, sin mezclar nada. Con él se reconocen los
   gastos bancarios, con la lista de cada banco en `configuracion.toml`:

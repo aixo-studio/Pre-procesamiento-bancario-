@@ -2,10 +2,12 @@
 
 ## Abierto (en orden de prioridad)
 
-0. **Separar los gastos bancarios en una hoja aparte (APR-216).** Ya se
-   reconocen (APR-219); falta sacarlos de "Movimientos" a su propia hoja y
-   controlar que Movimientos + Gastos cierren contra el original. Cambia el
-   contrato con la etapa 2: el Conciliador tiene que aceptar la segunda hoja.
+0. **Controlar las dos hojas contra el original (APR-223).** Hoy el control
+   de filas y suma se hace antes de separar; tiene que comparar el original
+   contra Movimientos + Gastos bancarios.
+0. **El Conciliador tiene que aceptar la segunda hoja.** Hoy rechaza los
+   archivos con más de una hoja: con el APR-222 el extracto de un banco sale
+   con dos. Va en el repo del Conciliador.
 1. **Frenar si el archivo trae más de una hoja.** Hoy se lee solo la primera,
    sin aviso. Pasó con un Galicia con una hoja "Gastos Bancarios" hecha a mano
    adelante de "Movimientos": se convirtieron 3 filas en vez de 500.
@@ -22,6 +24,11 @@
 
 ## Hecho
 
+- 2026-10-30 — Rama `separar-gastos` (APR-222): el extracto de un banco sale
+  con dos hojas, "Movimientos" y "Gastos bancarios" (siempre las dos); el
+  libro del ERP con una. Verificado con septiembre: mismas filas que antes
+  repartidas en las dos hojas, en orden, y la hoja de gastos igual a la
+  separación a mano. Los libros del ERP, idénticos.
 - 2026-10-28 — Rama `gastos-bancarios` (APR-219): cada banco tiene su lista
   `gastos` en `configuracion.toml`; se controla que no falte, no esté vacía
   y no tenga repetidos, y se reconoce un gasto comparando el Código exacto.

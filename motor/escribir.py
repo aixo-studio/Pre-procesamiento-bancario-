@@ -1,4 +1,8 @@
-"""Pasos 4 y 5 del proceso: controlar que no se perdió nada y escribir el Excel."""
+"""Pasos 6 y 7 del proceso: controlar que no se perdió nada y escribir el Excel.
+
+El extracto de un banco sale con dos hojas, "Movimientos" y "Gastos bancarios";
+el libro del ERP, solo con "Movimientos". Las dos hojas tienen el mismo formato.
+"""
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -27,15 +31,26 @@ def controlar(movimientos: list[Movimiento], columnas: dict, datos: list, reglas
             "creditos": creditos, "debitos": debitos, "suma": suma}
 
 
-def escribir_excel(movimientos: list[Movimiento], ruta: Path) -> None:
-    """Recibe los movimientos y la ruta donde guardar.
-    Escribe un Excel con una sola hoja, "Movimientos": el encabezado y las
-    cuatro columnas, con formato de fecha y de monto. El Código se escribe como
-    texto, así "005" no se convierte en 5.
+def escribir_excel(movimientos: list[Movimiento], ruta: Path, gastos: list[Movimiento] = None) -> None:
+    """Recibe los movimientos, la ruta donde guardar y, si es un extracto de banco,
+    los gastos bancarios. Escribe la hoja "Movimientos" y, si hay lista de gastos
+    (aunque esté vacía), la hoja "Gastos bancarios". Sin lista (el libro del ERP)
+    queda una sola hoja.
     """
     libro = Workbook()
-    hoja = libro.active
-    hoja.title = "Movimientos"
+    libro.active.title = "Movimientos"
+    escribir_hoja(libro.active, movimientos)
+    # El extracto de un banco tiene siempre las dos hojas, aunque en el mes no haya gastos.
+    if gastos is not None:
+        escribir_hoja(libro.create_sheet("Gastos bancarios"), gastos)
+    libro.save(ruta)
+
+
+def escribir_hoja(hoja, movimientos: list[Movimiento]) -> None:
+    """Recibe una hoja vacía y sus movimientos. Escribe el encabezado y las
+    cuatro columnas, con formato de fecha y de monto. El Código se escribe como
+    texto, así "005" no se convierte en 5. Se usa igual para las dos hojas.
+    """
     # Encabezado en negrita.
     hoja.append(["Fecha", "Código", "Descripción", "Monto"])
     for celda in hoja[1]:
@@ -50,4 +65,3 @@ def escribir_excel(movimientos: list[Movimiento], ruta: Path) -> None:
     for letra, ancho in zip("ABCD", (12, 34, 50, 18)):
         hoja.column_dimensions[letra].width = ancho
     hoja.freeze_panes = "A2"  # el encabezado queda fijo al bajar
-    libro.save(ruta)
