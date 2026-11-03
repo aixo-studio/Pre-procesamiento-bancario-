@@ -173,46 +173,66 @@ Cómo se corre:
 
 ## La salida es el contrato con la etapa 2
 
-El repo de la etapa 2 (Conciliador, carpeta "conciliacion v4") lee estos
-archivos tal como salen. Cualquier cambio
-en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
+El repo de la etapa 2 (en GitHub "Conciliador", carpeta "conciliacion v4")
+lee estos archivos tal como salen. Si algo de esto no se puede cumplir, el
+archivo no se genera y se dice por qué. Cualquier cambio en el contrato rompe
+ese repo: antes de hacerlo, frenar y avisar, y cambiarlo en los dos repos en
+el mismo paso.
 
-- Carpeta: `conciliacion resultados/v3/output/<AAAA-MM>/<Banco>/` (la
-  `carpeta` de cada banco en `configuracion.toml`: BBVA, Galicia, Supervielle).
-- En cada carpeta de banco del output hay un archivo del banco y uno del
-  sistema (que los dos estén lo asegura quien llama, la UI).
-- Nombre: `<documento> - <nombre del original sin extensión>.xlsx`, donde
-  `<documento>` es el `documento` de su sección del config (`banco_bbva`,
-  `banco_galicia`, `banco_supervielle`, `sistema_finnegans`). Así la etapa 2
-  sabe cuál es el banco y cuál el sistema.
-- El extracto de un banco: dos hojas, "Movimientos" (sin gastos bancarios) y
-  "Gastos bancarios", siempre las dos aunque una quede vacía. El libro del
-  ERP: una sola hoja, "Movimientos". (Cambio del 2026-10-30, APR-222: antes
-  todo salía en una sola hoja.)
-- Fila 1 de cada hoja, el encabezado: Fecha · Código · Descripción · Monto,
-  igual en los cuatro documentos. Debajo, un movimiento por fila, en el orden del original.
-- El Código es el valor puro de la columna que identifica el tipo de
-  movimiento en cada documento, sin mezclar nada. Con él se reconocen los
-  gastos bancarios, con la lista de cada banco en `configuracion.toml`:
+<!-- CONTRATO v3 → v4 · INICIO. Este bloque es igual, palabra por palabra, en el
+     CLAUDE.md de "conciliacion v3" y en el de "conciliacion v4". Si cambia,
+     cambia en los dos en el mismo paso, con la fecha nueva. -->
+
+**Contrato del 2026-10-30.** Lo que escribe la etapa 1 (carpeta "conciliacion
+v3", en GitHub Pre-procesamiento-bancario-) y lee la etapa 2 (carpeta
+"conciliacion v4", en GitHub Conciliador).
+
+- Carpeta: `conciliacion resultados/v3/output/<AAAA-MM>/<Banco>/`, una por
+  banco (BBVA, Galicia, Supervielle).
+- Archivos: en cada carpeta, uno del banco y uno del sistema. Que estén los
+  dos lo asegura quien llama a v3 (la UI); v4 frena si no hay exactamente uno
+  de cada uno.
+- Nombre: `<documento> - <nombre del original sin extensión>.xlsx`. En el
+  extracto, `<documento>` empieza con `banco_` (`banco_bbva`, `banco_galicia`,
+  `banco_supervielle`); en el libro del sistema, con `sistema_`
+  (`sistema_finnegans`).
+- Hojas: el extracto tiene dos, "Movimientos" (sin gastos bancarios) y
+  "Gastos bancarios", en ese orden y siempre las dos, aunque una quede vacía.
+  El libro del sistema tiene una sola, "Movimientos". v4 cruza solo
+  "Movimientos"; la hoja de gastos no la lee.
+- Fila 1 de cada hoja, el encabezado: Fecha · Código · Descripción · Monto.
+  Debajo, un movimiento por fila, en el orden del original.
+- Código: el valor puro de la columna que identifica el tipo de movimiento en
+  cada documento, sin mezclar nada. Con él v3 reconoce los gastos bancarios
+  (la lista de cada banco está en su `configuracion.toml`).
 
       banco_bbva          Codigo               ej. 236
       banco_galicia       Grupo de Conceptos   ej. 000901 - Impuestos
       banco_supervielle   Concepto             ej. Impuesto Débitos y Créditos/DB
       sistema_finnegans   Tipo de documento    ej. Orden de pago
 
-- Fecha: fecha real de Excel. Código y Descripción: texto (puede estar vacío).
-  El Código sale tal cual, con sus ceros adelante ("005", nunca 5); si en el
-  original viene como número, el archivo no se genera. Monto: número en pesos
-  con dos decimales; si es redondo (sin centavos) queda guardado como entero,
-  por ejemplo 250000 en vez de 250000.00, con el mismo valor. Crédito
-  positivo, débito negativo. En el sistema, Debe (entra al banco) es positivo
-  y Haber negativo.
-- El texto del Concepto del BBVA y del Galicia ya no sale (cambio del
-  2026-10-20, commit 306da11). Si la etapa 2 lo necesita, se pide un cambio de
+  Siempre es texto, tal cual el original, con sus ceros adelante ("005",
+  nunca 5).
+- Fecha: fecha real de Excel. Código y Descripción: texto (pueden estar
+  vacíos). Monto: número en pesos con dos decimales; si es redondo puede
+  quedar como entero (250000 en vez de 250000.00, con el mismo valor).
+  Crédito positivo, débito negativo. En el sistema, Debe (entra al banco) es
+  positivo y Haber negativo.
+- El Monto se compara y se suma en centavos enteros, redondeando al leerlo:
+  un decimal leído de un Excel puede venir con un error mínimo
+  (1500000.2499999 en vez de 1500000.25).
+- Lo que no llega: el texto del Concepto del BBVA y del Galicia, el número de
+  cheque del BBVA (Número Documento), las Leyendas Adicionales del Galicia y
+  el saldo del extracto. Si la etapa 2 necesita alguno, es un cambio de
   contrato.
-- Al leer el Monto, la etapa 2 lo pasa a centavos enteros redondeando, y
-  compara y suma en centavos: un decimal leído de un Excel puede venir con
-  un error mínimo (1500000.2499999 en vez de 1500000.25).
+
+Cambios:
+- 2026-10-30 (APR-222 de v3): el extracto pasa a tener dos hojas; los gastos
+  bancarios salen separados en "Gastos bancarios".
+- 2026-10-20 (commit 306da11 de v3): la segunda columna pasa de Concepto a
+  Código.
+
+<!-- CONTRATO v3 → v4 · FIN -->
 
 ## Código
 
