@@ -1,23 +1,25 @@
-"""Puerta de entrada: convierte los documentos de un mes a cuatro columnas.
+"""Puerta de entrada: limpia un documento y lo devuelve como DataFrame.
 
-Uso:
-    python convertir.py 2026-09                         todo el mes
-    python convertir.py 2026-09 BBVA                    un banco
-    python convertir.py 2026-09 BBVA "banco BBVA.xls"   un solo archivo
+Lo llama Conciliador, una vez por archivo, con convertir_documento(): le dice
+qué banco es y si es el libro del ERP, y recibe el DataFrame
+(Fecha · Código · Descripción · Monto en centavos · Clase). No guarda ni borra nada.
 
-Lee de  conciliacion resultados/v3/input/<mes>/<Banco>/
-y deja  conciliacion resultados/v3/output/<mes>/<Banco>/<documento> - <original>.xlsx
-Cada archivo se convierte por separado: si uno falla, los demás siguen.
+Desde la terminal sirve para probar un archivo y ver el resumen:
+    python convertir.py BBVA "extracto.xls"           el extracto del BBVA
+    python convertir.py BBVA "libro.xlsx" --erp       el libro del ERP de la cuenta BBVA
+
+Las reglas de cada banco y del ERP están en configuracion.toml.
 """
-import re
 import sys
 from pathlib import Path
 
+import pandas
+
 from motor.armar import armar_movimientos
-from motor.carpetas import (CARPETA_DATOS, borrar_salidas, cargar_reglas, fechas_fuera_del_mes,
-                            revisar_carpeta, ruta_salida)
-from motor.escribir import controlar, escribir_excel
-from motor.leer import encontrar_tabla
+from motor.configuracion import buscar_reglas, columnas_que_se_usan
+from motor.controlar import controlar
+from motor.devolver import CLASE_GASTO_BANCARIO, armar_dataframe
+from motor.leer import encontrar_tabla, leer_filas
 
 
 def pesos(centavos: int) -> str:
@@ -25,92 +27,68 @@ def pesos(centavos: int) -> str:
     return f"{centavos / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def convertir_archivo(filas: list[list], documento: str):
-    """Recibe las filas de un archivo y su documento. Encuentra la tabla, arma las
-    cuatro columnas y controla filas y suma. Devuelve los movimientos y el resumen.
-    Si algo no cierra, frena con un error.
+def limpiar_archivo(ruta_archivo: Path, reglas: dict, que_se_espera: str) -> tuple[list, dict]:
+    """Recibe un archivo, las reglas para limpiarlo y qué documento se espera (para el error).
+    Lo abre, verifica sus encabezados, arma las columnas y controla filas y suma.
+    Devuelve los movimientos y el resumen. Si algo no cierra, frena con un error.
     """
-    reglas = cargar_reglas(documento)
-    columnas, datos = encontrar_tabla(filas, reglas.ENCABEZADOS, getattr(reglas, "SEGUIDAS", None))
+    # Un archivo que falta, está dañado o no es Excel de verdad no se puede abrir.
+    try:
+        filas = leer_filas(ruta_archivo)
+    except Exception:
+        raise ValueError("no se pudo abrir como Excel.") from None
+    # Solo se buscan las columnas que se usan: si cambia otra, no importa.
+    try:
+        columnas, datos = encontrar_tabla(filas, columnas_que_se_usan(reglas), reglas.get("seguidas"))
+    except ValueError as error:
+        raise ValueError(f"no es {que_se_espera}. {error}") from None
     movimientos = armar_movimientos(columnas, datos, reglas)
     return movimientos, controlar(movimientos, columnas, datos, reglas)
 
 
-def convertir_banco(carpeta_entrada: Path, carpeta_salida: Path, mes: str,
-                    solo_archivo: str = None) -> tuple[int, int]:
-    """Recibe la carpeta de input de un banco, su carpeta de output y el mes.
-    Convierte cada archivo por separado (o solo uno, si se indica) y muestra el resumen.
-    Devuelve cuántos archivos se convirtieron y cuántos errores hubo.
+def convertir_con_resumen(ruta_archivo: Path, banco: str, es_erp: bool) -> tuple[pandas.DataFrame, dict]:
+    """Recibe un archivo, su banco y si es el libro del ERP.
+    Lo limpia con las reglas que le tocan. Devuelve el DataFrame y el resumen
+    (filas, ignoradas, créditos, débitos y suma). Si algo falla, frena con un error.
     """
-    banco = carpeta_entrada.name
-    print(f"  {banco}")
-    # Primero se revisa la carpeta entera: un extracto y un libro del sistema.
-    try:
-        reconocidos = revisar_carpeta(carpeta_entrada)
-    except ValueError as error:
-        print(f"    ✗ No se convirtió el banco: {error}")
-        for nombre in borrar_salidas(carpeta_salida):
-            print(f"      Se borró el resultado anterior: {nombre}")
-        return 0, 1
-    if solo_archivo:
-        reconocidos = [archivo for archivo in reconocidos if archivo[0].name == solo_archivo]
-        if not reconocidos:
-            print(f'    ✗ No está el archivo "{solo_archivo}" en la carpeta.')
-            return 0, 1
-    convertidos = errores = 0
-    for ruta, documento, filas in reconocidos:
-        # Antes de escribir se borra el resultado anterior de este documento.
-        borrados = borrar_salidas(carpeta_salida, documento)
-        try:
-            movimientos, resumen = convertir_archivo(filas, documento)
-        except ValueError as error:
-            print(f"    ✗ {documento:<18} {ruta.name}: no se generó. {error}")
-            for nombre in borrados:
-                print(f"      Se borró el resultado anterior: {nombre}")
-            errores += 1
-            continue
-        carpeta_salida.mkdir(parents=True, exist_ok=True)
-        escribir_excel(movimientos, ruta_salida(carpeta_salida, documento, ruta))
-        ignoradas = f"({resumen['ignoradas']} ignorada{'s' if resumen['ignoradas'] != 1 else ''})" \
-            if resumen["ignoradas"] else ""
-        print(f"    ✓ {documento:<18} {resumen['filas']:>6} filas {ignoradas:<14} "
-              f"{pesos(resumen['suma']):>18}   {ruta.name}")
-        # Aviso de fechas de otro mes: no frena y no las saca.
-        for otro_mes, cantidad in fechas_fuera_del_mes(movimientos, mes).items():
-            print(f"      ⚠ {cantidad} fila{'s' if cantidad != 1 else ''} con fecha de {otro_mes}")
-        convertidos += 1
-    return convertidos, errores
+    reglas = buscar_reglas(banco, es_erp)
+    que_se_espera = "el libro del ERP" if es_erp else f"un extracto de {banco}"
+    movimientos, resumen = limpiar_archivo(ruta_archivo, reglas, que_se_espera)
+    return armar_dataframe(movimientos, reglas), resumen
+
+
+def convertir_documento(ruta_archivo: Path, banco: str, es_erp: bool) -> pandas.DataFrame:
+    """Recibe un archivo, su banco y si es el libro del ERP.
+    Devuelve el DataFrame con sus movimientos. Es lo que llama Conciliador.
+    Si algo falla, frena con un error que dice por qué.
+    """
+    tabla, _ = convertir_con_resumen(ruta_archivo, banco, es_erp)
+    return tabla
 
 
 def main() -> None:
-    """Recibe desde la terminal el mes y, opcionalmente, el banco y el archivo.
-    Convierte lo pedido y muestra el resumen. Si hubo errores, termina con error.
+    """Recibe desde la terminal el banco, el archivo y, si es el libro del ERP, --erp.
+    Convierte el archivo y muestra el resumen. No guarda nada. Si falla, termina con error.
     """
     argumentos = sys.argv[1:]
-    if not 1 <= len(argumentos) <= 3 or not re.fullmatch(r"\d{4}-\d{2}", argumentos[0]):
+    es_erp = "--erp" in argumentos
+    argumentos = [argumento for argumento in argumentos if argumento != "--erp"]
+    if len(argumentos) != 2:
         sys.exit(__doc__)
-    mes = argumentos[0]
-    entrada_mes = CARPETA_DATOS / "input" / mes
-    salida_mes = CARPETA_DATOS / "output" / mes
-    if not entrada_mes.is_dir():
-        sys.exit(f"No existe la carpeta {entrada_mes}")
-    # Qué bancos convertir: el indicado o todas las carpetas del mes.
-    if len(argumentos) >= 2:
-        carpetas = [entrada_mes / argumentos[1]]
-        if not carpetas[0].is_dir():
-            sys.exit(f"No existe la carpeta {carpetas[0]}")
-    else:
-        carpetas = sorted(carpeta for carpeta in entrada_mes.iterdir() if carpeta.is_dir())
-    solo_archivo = argumentos[2] if len(argumentos) == 3 else None
-    print(mes)
-    convertidos = errores = 0
-    for carpeta in carpetas:
-        hechos, fallados = convertir_banco(carpeta, salida_mes / carpeta.name, mes, solo_archivo)
-        convertidos, errores = convertidos + hechos, errores + fallados
-    print(f"\n{convertidos} archivo{'s' if convertidos != 1 else ''} convertido"
-          f"{'s' if convertidos != 1 else ''}, {errores} con error.")
-    if errores:
-        sys.exit(1)
+    banco, archivo = argumentos
+    ruta_archivo = Path(archivo)
+    try:
+        tabla, resumen = convertir_con_resumen(ruta_archivo, banco, es_erp)
+    except ValueError as error:
+        sys.exit(f"✗ {ruta_archivo.name}: no se pudo convertir. {error}")
+    gastos = tabla[tabla["Clase"] == CLASE_GASTO_BANCARIO]
+    print(f"✓ {ruta_archivo.name}")
+    print(f"  filas:       {resumen['filas']} (ignoradas: {resumen['ignoradas']})")
+    print(f"  columnas:    {' · '.join(tabla.columns)}")
+    print(f"  suma:        {pesos(resumen['suma'])}")
+    print(f"  gastos:      {len(gastos)} filas, {pesos(int(gastos['Monto en centavos'].sum()))}")
+    if not tabla.empty:
+        print(f"  fechas:      del {tabla['Fecha'].min():%d/%m/%Y} al {tabla['Fecha'].max():%d/%m/%Y}")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """Pasos 1 y 2 del proceso: abrir el archivo y encontrar la tabla de movimientos.
 
-No sabe nada de ningún banco: recibe la lista de encabezados que le pasa
-cada documento (en su reglas.py) y busca la tabla que los tiene.
+No sabe nada de ningún banco: recibe los encabezados de las columnas que usa
+cada documento (salen de configuracion.toml) y busca la tabla que los tiene.
 """
 from pathlib import Path
 
@@ -25,11 +25,12 @@ def leer_filas(ruta: Path) -> list[list]:
 
 def encontrar_tabla(filas: list[list], encabezados: list[str],
                     seguidas: list[str] = None) -> tuple[dict, list]:
-    """Recibe todas las filas del archivo y los encabezados que tiene que tener la tabla.
+    """Recibe todas las filas del archivo y los encabezados que tiene que tener la tabla
+    (solo las columnas que se usan; las demás pueden venir o no).
     Busca la fila que tiene todos esos encabezados y devuelve dos cosas:
     - dónde está cada columna: {"Fecha": 0, "Codigo": 3, ...}
     - las filas de abajo, cada una con su número de fila en el Excel original.
-    Si no encuentra la fila de encabezados, frena con un error.
+    Si no la encuentra, frena con un error que dice qué columnas faltan.
 
     "seguidas" es opcional: columnas que tienen que estar una al lado de la otra,
     en ese orden. Sirve cuando un nombre aparece dos veces en el archivo: se usa
@@ -51,7 +52,25 @@ def encontrar_tabla(filas: list[list], encabezados: list[str],
             datos = [(posicion + 2 + indice, fila_de_datos)
                      for indice, fila_de_datos in enumerate(filas[posicion + 1:])]
             return columnas, datos
-    raise ValueError("No se encontró la fila de encabezados. Se esperaba: " + ", ".join(encabezados))
+    raise ValueError(explicar_encabezados_faltantes(filas, encabezados))
+
+
+def explicar_encabezados_faltantes(filas: list[list], encabezados: list[str]) -> str:
+    """Recibe las filas del archivo y los encabezados esperados, cuando ninguna fila
+    los tiene todos. Devuelve el mensaje de error: si una fila tiene al menos la
+    mitad, dice en qué fila está y qué columnas le faltan; si no, que ninguna se parece.
+    """
+    mejor_posicion, mejor_faltantes = None, encabezados
+    for posicion, fila in enumerate(filas):
+        nombres = {str(celda).strip() for celda in fila if celda is not None}
+        faltantes = [encabezado for encabezado in encabezados if encabezado not in nombres]
+        if len(faltantes) < len(mejor_faltantes):
+            mejor_posicion, mejor_faltantes = posicion, faltantes
+    # Con menos de la mitad no es una columna que cambió: es otro documento.
+    if mejor_posicion is None or len(mejor_faltantes) > len(encabezados) / 2:
+        return "Ninguna fila tiene sus encabezados. Se esperaba: " + ", ".join(encabezados) + "."
+    # +1 porque Excel cuenta las filas desde 1.
+    return f"En la fila {mejor_posicion + 1} faltan estas columnas: " + ", ".join(mejor_faltantes) + "."
 
 
 def buscar_seguidas(nombres: list[str], seguidas: list[str]) -> int:
