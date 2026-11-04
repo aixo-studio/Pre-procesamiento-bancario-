@@ -20,17 +20,12 @@ Se exporta del sistema como `.xlsx`, una cuenta por archivo, con una sola hoja
   Cotizacion · Productoid · Producto · Empresa · Organizacion transaccion ·
   Debe · Haber · Tipo de documento.
 
-## Cómo se convierte
-
-| Salida      | Sale de           | Regla                                                         |
-|-------------|-------------------|---------------------------------------------------------------|
-| Fecha       | Fecha             | Viene como fecha real de Excel.                               |
-| Código      | Tipo de documento | Tal cual: Movimiento de Fondos, Orden de pago, Recibo de Cobranzas… |
-| Descripción | Descripción       | Tal cual. Muchas veces viene vacía y queda vacía.             |
-| Monto       | Debe y Haber      | Debe en positivo (entra al banco), Haber en negativo (sale).  |
-
 ## Condiciones
 
+Qué columna va a cada lugar está en la sección `[erp]` de
+`configuracion.toml`. Acá va lo que el config no explica.
+
+- No tiene gastos bancarios: todas sus filas salen con Clase "Movimiento".
 - **Debe y Haber aparecen dos veces.** Un par está en pesos y es el que se usa;
   el otro es el mismo importe en dólares. El de pesos se reconoce porque está
   entre Descripción y Documento (`seguidas` en `configuracion.toml`). Si esas cuatro
@@ -60,7 +55,7 @@ Entra:
 
 Sale:
 
-| Fecha      | Código               | Descripción            | Monto        |
-|------------|----------------------|------------------------|--------------|
-| 01/09/2026 | Movimiento de Fondos | Mvto. e/ ctas. propias | 500.000,00   |
-| 01/09/2026 | Orden de pago        |                        | −125.000,00  |
+| Fecha      | Código               | Descripción            | Monto en centavos | Clase      |
+|------------|----------------------|------------------------|-------------------|------------|
+| 01/09/2026 | Movimiento de Fondos | Mvto. e/ ctas. propias | 50000000          | Movimiento |
+| 01/09/2026 | Orden de pago        |                        | −12500000         | Movimiento |

@@ -5,11 +5,12 @@ import openpyxl
 import pytest
 
 from motor.armar import armar_movimientos
-from motor.configuracion import buscar_reglas_y_carpeta
-from motor.escribir import controlar, escribir_excel
+from motor.configuracion import buscar_reglas, columnas_que_se_usan
+from motor.controlar import controlar
+from motor.devolver import armar_dataframe
 from motor.leer import encontrar_tabla, leer_filas
 
-reglas, _ = buscar_reglas_y_carpeta("BBVA", es_erp=False)
+reglas = buscar_reglas("BBVA", es_erp=False)
 
 ENCABEZADO = ["Fecha", "Fecha Valor", "Concepto", "Codigo", "Número Documento",
               "Oficina", "Crédito", "Débito", "Detalle", "   "]
@@ -32,7 +33,7 @@ def crear_extracto(carpeta, filas_de_datos):
 
 def convertir(ruta):
     """Corre los pasos del motor sobre el archivo de prueba y devuelve movimientos y resumen."""
-    columnas, datos = encontrar_tabla(leer_filas(ruta), reglas["encabezados"])
+    columnas, datos = encontrar_tabla(leer_filas(ruta), columnas_que_se_usan(reglas))
     movimientos = armar_movimientos(columnas, datos, reglas)
     return movimientos, controlar(movimientos, columnas, datos, reglas)
 
@@ -54,15 +55,10 @@ def test_convierte_a_cuatro_columnas(tmp_path):
     assert (resumen["filas"], resumen["ignoradas"], resumen["creditos"], resumen["debitos"], resumen["suma"]) == \
         (3, 0, 25000000, 15136550, 9863450)
 
-    salida = tmp_path / "salida.xlsx"
-    escribir_excel(movimientos, salida)
-    libro = openpyxl.load_workbook(salida)
-    assert libro.sheetnames == ["Movimientos"]  # una sola hoja, con todo
-    filas = list(libro.active.iter_rows(values_only=True))
-    assert filas[0] == ("Fecha", "Código", "Descripción", "Monto")
-    assert filas[2][1:] == ("319", "CTE 000011110001", 250000)
-    # En el Excel el código con ceros sigue siendo el texto "005", no el número 5.
-    assert filas[1][1] == "005" and isinstance(filas[1][1], str)
+    # El 236 es gasto bancario; el Código sigue siendo el texto "005", no el número 5.
+    tabla = armar_dataframe(movimientos, reglas)
+    assert list(tabla["Código"]) == ["005", "319", "236"]
+    assert list(tabla["Clase"]) == ["Movimiento", "Movimiento", "Gasto bancario"]
 
 
 def test_frena_si_la_fecha_no_se_puede_leer(tmp_path):
@@ -86,7 +82,7 @@ def test_frena_si_no_es_un_extracto_del_bbva(tmp_path):
     libro.active.append(["Fecha", "Descripción", "Importe"])
     ruta = tmp_path / "otro.xlsx"
     libro.save(ruta)
-    with pytest.raises(ValueError, match="No se encontró la fila de encabezados"):
+    with pytest.raises(ValueError, match="Ninguna fila tiene sus encabezados"):
         convertir(ruta)
 
 

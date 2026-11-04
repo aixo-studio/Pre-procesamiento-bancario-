@@ -18,26 +18,17 @@ Excel. Falta compararlo con uno bajado directo del banco (ver PENDIENTES.md).
 
 ## Cómo se convierte
 
-| Salida      | Sale de             | Regla                                                     |
-|-------------|---------------------|-----------------------------------------------------------|
-| Fecha       | Fecha               | Viene como fecha real de Excel.                           |
-| Código      | Grupo de Conceptos  | Tal cual (`000901 - Impuestos`).                          |
-| Descripción | Descripción         | Tal cual (`Transf Inmed Cp`).                             |
-| Monto       | Créditos y Débitos  | Crédito en positivo, débito en negativo.                  |
+Qué columna va a cada lugar y la lista de gastos bancarios están en la
+sección `[bancos.Galicia]` de `configuracion.toml`. Acá va lo que el config no
+explica.
 
 **Por qué el Código sale de "Grupo de Conceptos" y no de "Concepto":** el
 Galicia agrupa sus operaciones en unos pocos grupos (Impuestos, Comisiones,
 Intereses, Transferencias…) y el grupo alcanza solo para reconocer los gastos
-bancarios en la etapa 2. El "Concepto" es mucho más detallado
+bancarios. El "Concepto" es mucho más detallado
 (`907268 - TRANSF INMED CP`) y casi lo mismo ya sale en la Descripción.
-
-## Gastos bancarios
-
-El Galicia ya agrupa sus gastos: son gasto las filas cuyo Código (el Grupo de
-Conceptos) es uno de los 3 de la lista `gastos` en `configuracion.toml`:
-`000901 - Impuestos`, `000808 - Comisiones` y `000814 - Intereses`. Se compara
-exacto. Verificado con septiembre 2026: 387 filas. Salen en la hoja
-"Gastos bancarios"; el resto queda en "Movimientos".
+Por eso los gastos se reconocen con solo tres grupos (Impuestos, Comisiones e
+Intereses).
 
 ## Condiciones
 
@@ -62,7 +53,7 @@ Entra:
 
 Sale:
 
-| Fecha      | Código                  | Descripción      | Monto        |
-|------------|-------------------------|------------------|--------------|
-| 01/09/2026 | 000907 - Transferencias | Transf Inmed Cp  | −150.000,00  |
-| 02/09/2026 | 000083 - Pagos          | Credito Prestamo | 800.000,00   |
+| Fecha      | Código                  | Descripción      | Monto en centavos | Clase      |
+|------------|-------------------------|------------------|-------------------|------------|
+| 01/09/2026 | 000907 - Transferencias | Transf Inmed Cp  | −15000000         | Movimiento |
+| 02/09/2026 | 000083 - Pagos          | Credito Prestamo | 80000000          | Movimiento |

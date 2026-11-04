@@ -14,20 +14,14 @@ trae la cuenta y la fecha de descarga (`Movimientos_Supervielle_<cuenta>_<fecha>
 
 ## Cómo se convierte
 
-| Salida      | Sale de          | Regla                                                |
-|-------------|------------------|------------------------------------------------------|
-| Fecha       | Fecha            | Viene como texto `30/09/2026`; se pasa a fecha real. |
-| Código      | Concepto         | Tal cual (`Pago Cheque de Cámara Recibida`).         |
-| Descripción | Detalle          | Tal cual (`Número Cheque: 2075`). Puede venir vacía. |
-| Monto       | Crédito y Débito | Crédito en positivo, débito en negativo.             |
+Qué columna va a cada lugar y la lista de gastos bancarios están en la
+sección `[bancos.Supervielle]` de `configuracion.toml`. Acá va lo que el
+config no explica.
 
-## Gastos bancarios
-
-El Supervielle no trae un código: son gasto las filas cuyo Código (el texto
-del Concepto) es uno de los 8 de la lista `gastos` en `configuracion.toml`
-(`IVA`, `Impuesto Débitos y Créditos/DB`, …). Se compara exacto, con
-mayúsculas y acentos. Verificado con septiembre 2026: 89 filas. Salen en la hoja
-"Gastos bancarios"; el resto queda en "Movimientos".
+**Por qué el Código sale de "Concepto":** el banco no trae una columna de
+código; el Concepto es el texto fijo que identifica el tipo de movimiento
+(`Pago Cheque de Cámara Recibida`). Por eso los gastos se reconocen por el
+Concepto exacto.
 
 ## Condiciones
 
@@ -52,7 +46,7 @@ Entra:
 
 Sale:
 
-| Fecha      | Código                         | Descripción        | Monto        |
-|------------|--------------------------------|--------------------|--------------|
-| 30/09/2026 | CRED BCA ELECTR INTERBANC EXEN | CUENTAS PROPIAS    | 500.000,00   |
-| 29/09/2026 | Pago Cheque de Cámara Recibida | Número Cheque: 101 | −150.000,00  |
+| Fecha      | Código                         | Descripción        | Monto en centavos | Clase      |
+|------------|--------------------------------|--------------------|-------------------|------------|
+| 30/09/2026 | CRED BCA ELECTR INTERBANC EXEN | CUENTAS PROPIAS    | 50000000          | Movimiento |
+| 29/09/2026 | Pago Cheque de Cámara Recibida | Número Cheque: 101 | −15000000         | Movimiento |

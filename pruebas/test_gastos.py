@@ -4,19 +4,21 @@ exacto. Las listas de prueba son inventadas, salvo las del config real.
 """
 import pytest
 
-from motor.configuracion import buscar_reglas_y_carpeta, controlar_gastos, es_gasto
+from motor.configuracion import buscar_reglas, controlar_gastos, es_gasto
 
 
 @pytest.mark.parametrize("banco", ["BBVA", "Galicia", "Supervielle"])
 def test_cada_banco_del_config_tiene_su_lista_de_gastos(banco):
     # Si a un banco le faltara la lista, buscar sus reglas ya frenaría.
-    reglas, _ = buscar_reglas_y_carpeta(banco, es_erp=False)
+    reglas = buscar_reglas(banco, es_erp=False)
     assert reglas["gastos"]
 
 
 def test_el_erp_no_necesita_lista_de_gastos():
-    reglas, carpeta = buscar_reglas_y_carpeta("BBVA", es_erp=True)
-    assert "gastos" not in reglas and carpeta == "BBVA"
+    reglas = buscar_reglas("BBVA", es_erp=True)
+    assert "gastos" not in reglas
+    # Sin lista, ningún Código del ERP es gasto.
+    assert not es_gasto("Orden de pago", reglas)
 
 
 def test_es_gasto_compara_exacto():
@@ -33,9 +35,9 @@ def test_es_gasto_compara_exacto():
 
 
 def test_es_gasto_con_las_listas_reales():
-    bbva, _ = buscar_reglas_y_carpeta("BBVA", es_erp=False)
-    galicia, _ = buscar_reglas_y_carpeta("Galicia", es_erp=False)
-    supervielle, _ = buscar_reglas_y_carpeta("Supervielle", es_erp=False)
+    bbva = buscar_reglas("BBVA", es_erp=False)
+    galicia = buscar_reglas("Galicia", es_erp=False)
+    supervielle = buscar_reglas("Supervielle", es_erp=False)
     assert es_gasto("236", bbva) and not es_gasto("319", bbva)
     assert es_gasto("000901 - Impuestos", galicia) and not es_gasto("000905 - Transferencias", galicia)
     assert es_gasto("IVA", supervielle) and not es_gasto("Pago Cheque de Cámara Recibida", supervielle)

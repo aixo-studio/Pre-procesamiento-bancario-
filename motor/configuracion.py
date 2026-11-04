@@ -1,8 +1,8 @@
 """Antes de convertir: trae de configuracion.toml las reglas del documento a limpiar.
 
-Cada banco tiene su sección (las reglas de su extracto, su carpeta de salida y
-su lista de gastos bancarios); el libro del ERP tiene una sola sección, igual
-para todas las cuentas, y no tiene gastos bancarios.
+Cada banco tiene su sección (las reglas de su extracto y su lista de gastos
+bancarios); el libro del ERP tiene una sola sección, igual para todas las
+cuentas, y no tiene gastos bancarios.
 """
 import tomllib
 from pathlib import Path
@@ -11,23 +11,35 @@ from pathlib import Path
 RUTA_CONFIGURACION = Path(__file__).resolve().parent.parent / "configuracion.toml"
 
 
-def buscar_reglas_y_carpeta(banco: str, es_erp: bool) -> tuple[dict, str]:
+def buscar_reglas(banco: str, es_erp: bool) -> dict:
     """Recibe el banco (ej. BBVA) y si el archivo es el libro del ERP.
-    Devuelve las reglas para limpiarlo (las del ERP o las del extracto de ese
-    banco) y la carpeta del banco donde va el resultado.
-    Si el banco no está en la configuración, frena con un error.
+    Devuelve las reglas para limpiarlo: las del ERP o las del extracto de ese banco.
+    Si el banco no está en la configuración, o su lista de gastos está mal cargada,
+    frena con un error.
     """
     with open(RUTA_CONFIGURACION, "rb") as archivo:
         configuracion = tomllib.load(archivo)
     bancos = configuracion["bancos"]
-    # El banco se controla siempre, también para el ERP: de él sale la carpeta.
+    # El banco se controla siempre, también para el ERP: así un error de tipeo no pasa.
     if banco not in bancos:
         raise ValueError(f'"{banco}" no está en la configuración. Los configurados son: {", ".join(bancos)}.')
-    reglas = configuracion["erp"] if es_erp else bancos[banco]
+    if es_erp:
+        return configuracion["erp"]
     # El extracto de un banco trae gastos bancarios: su lista se revisa antes de usarla.
-    if not es_erp:
-        controlar_gastos(banco, reglas)
-    return reglas, bancos[banco]["carpeta"]
+    controlar_gastos(banco, bancos[banco])
+    return bancos[banco]
+
+
+def columnas_que_se_usan(reglas: dict) -> list[str]:
+    """Recibe las reglas de un documento. Devuelve los nombres de las columnas del
+    original que el programa usa: las de las cinco salidas, las de "ignorar" y las
+    de "seguidas". Son las únicas que tiene que traer el archivo; si cambia otra,
+    no importa.
+    """
+    columnas = [reglas["fecha"], reglas["codigo"], reglas["descripcion"], reglas["credito"], reglas["debito"]]
+    columnas += list(reglas.get("ignorar", {})) + reglas.get("seguidas", [])
+    # Sin repetidos y en el mismo orden, para que el mensaje de error se lea bien.
+    return list(dict.fromkeys(columnas))
 
 
 def controlar_gastos(banco: str, reglas: dict) -> None:
@@ -46,8 +58,9 @@ def controlar_gastos(banco: str, reglas: dict) -> None:
 
 
 def es_gasto(codigo: str, reglas: dict) -> bool:
-    """Recibe el Código de una fila y las reglas de su banco.
-    Devuelve True si ese Código está en la lista de gastos del banco.
-    La comparación es exacta: "015" no es lo mismo que "15", ni "IVA" que "iva".
+    """Recibe el Código de una fila y las reglas de su documento.
+    Devuelve True si ese Código está en la lista de gastos. El libro del ERP no
+    tiene lista: nunca es gasto. La comparación es exacta: "015" no es lo mismo
+    que "15", ni "IVA" que "iva".
     """
-    return codigo in reglas["gastos"]
+    return codigo in reglas.get("gastos", [])

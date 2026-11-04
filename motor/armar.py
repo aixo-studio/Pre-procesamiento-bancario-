@@ -75,30 +75,62 @@ def es_ignorada(fila: list, columnas: dict, reglas: dict) -> bool:
     return any(a_texto(fila[columnas[columna]]).strip() == valor for columna, valor in ignorar.items())
 
 
+# Cuántos errores de fila se muestran en el mensaje; del resto se dice solo cuántos son.
+ERRORES_A_MOSTRAR = 20
+
+
+def armar_fila(numero_fila: int, fila: list, columnas: dict, reglas: dict) -> Movimiento | None:
+    """Recibe una fila con su número y las reglas del documento.
+    Devuelve su movimiento, o None si es una fila ignorada (como el "Saldo Inicial").
+    Si la fila no se puede leer, frena con un error que dice qué fila y por qué.
+    """
+    if es_ignorada(fila, columnas, reglas):
+        # Una fila ignorada no puede llevar plata: si la lleva, algo está mal.
+        if a_centavos(fila[columnas[reglas["credito"]]], numero_fila) or a_centavos(fila[columnas[reglas["debito"]]], numero_fila):
+            raise ValueError(f"Fila {numero_fila}: es una fila a ignorar pero tiene monto.")
+        return None
+    credito = abs(a_centavos(fila[columnas[reglas["credito"]]], numero_fila))
+    # Se toma el débito sin signo y se lo pone negativo, venga como venga del banco.
+    debito = abs(a_centavos(fila[columnas[reglas["debito"]]], numero_fila))
+    # Cada movimiento tiene que tener crédito o débito: uno solo, nunca los dos ni ninguno.
+    if (credito == 0) == (debito == 0):
+        raise ValueError(f"Fila {numero_fila}: tiene que tener crédito o débito, uno solo.")
+    return Movimiento(
+        fecha=a_fecha(fila[columnas[reglas["fecha"]]], reglas.get("formato_fecha"), numero_fila),
+        codigo=a_codigo(fila[columnas[reglas["codigo"]]], numero_fila),
+        descripcion=a_texto(fila[columnas[reglas["descripcion"]]]),
+        monto_centavos=credito - debito,
+    )
+
+
 def armar_movimientos(columnas: dict, datos: list, reglas: dict) -> list[Movimiento]:
     """Recibe las filas de la tabla y las reglas del documento.
-    Devuelve la lista de movimientos con sus cuatro columnas.
-    Saltea las filas vacías y las ignoradas; si una fila no se puede leer, frena con un error.
+    Devuelve la lista de movimientos con sus cuatro columnas. Saltea las filas
+    vacías y las ignoradas. Si hay filas que no se pueden leer, las revisa todas
+    y frena con un solo error que las lista, así se corrigen de una vez.
     """
-    movimientos = []
+    movimientos, errores = [], []
     for numero_fila, fila in datos:
         if esta_vacia(fila):
             continue
-        if es_ignorada(fila, columnas, reglas):
-            # Una fila ignorada no puede llevar plata: si la lleva, algo está mal.
-            if a_centavos(fila[columnas[reglas["credito"]]], numero_fila) or a_centavos(fila[columnas[reglas["debito"]]], numero_fila):
-                raise ValueError(f"Fila {numero_fila}: es una fila a ignorar pero tiene monto.")
+        try:
+            movimiento = armar_fila(numero_fila, fila, columnas, reglas)
+        except ValueError as error:
+            errores.append(str(error))
             continue
-        credito = abs(a_centavos(fila[columnas[reglas["credito"]]], numero_fila))
-        # Se toma el débito sin signo y se lo pone negativo, venga como venga del banco.
-        debito = abs(a_centavos(fila[columnas[reglas["debito"]]], numero_fila))
-        # Cada movimiento tiene que tener crédito o débito: uno solo, nunca los dos ni ninguno.
-        if (credito == 0) == (debito == 0):
-            raise ValueError(f"Fila {numero_fila}: tiene que tener crédito o débito, uno solo.")
-        movimientos.append(Movimiento(
-            fecha=a_fecha(fila[columnas[reglas["fecha"]]], reglas.get("formato_fecha"), numero_fila),
-            codigo=a_codigo(fila[columnas[reglas["codigo"]]], numero_fila),
-            descripcion=a_texto(fila[columnas[reglas["descripcion"]]]),
-            monto_centavos=credito - debito,
-        ))
+        if movimiento is not None:
+            movimientos.append(movimiento)
+    if errores:
+        raise ValueError(explicar_errores_de_filas(errores))
     return movimientos
+
+
+def explicar_errores_de_filas(errores: list[str]) -> str:
+    """Recibe los errores de las filas. Devuelve un solo mensaje con los primeros
+    y, si hay más, cuántos quedan sin mostrar.
+    """
+    titulo = f"hay {len(errores)} fila{'s' if len(errores) != 1 else ''} con errores:"
+    lineas = [titulo] + [f"  {error}" for error in errores[:ERRORES_A_MOSTRAR]]
+    if len(errores) > ERRORES_A_MOSTRAR:
+        lineas.append(f"  … y {len(errores) - ERRORES_A_MOSTRAR} más.")
+    return "\n".join(lineas)

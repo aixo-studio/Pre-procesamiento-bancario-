@@ -1,15 +1,13 @@
 """Prueba de la entrada: convertir un archivo con su banco, verificar que sea el
-documento indicado, guardar en la carpeta del banco, borrar resultados viejos y
-avisar fechas de otro mes. Todo con archivos inventados.
+documento indicado y devolver el DataFrame. Todo con archivos inventados.
 """
-from datetime import date, datetime
+from datetime import datetime
 
 import openpyxl
 import pytest
 
 from convertir import convertir_documento
-from motor.armar import Movimiento
-from motor.carpetas import fechas_fuera_del_mes, ruta_salida
+from motor.devolver import COLUMNAS
 
 ENCABEZADO_BBVA = ["Fecha", "Fecha Valor", "Concepto", "Codigo", "Número Documento",
                    "Oficina", "Crédito", "Débito", "Detalle"]
@@ -46,74 +44,105 @@ def libro_erp(ruta):
     return guardar(ruta, [ENCABEZADO_ERP, fila, movimiento])
 
 
-def test_convierte_extracto_y_libro_a_la_carpeta_del_banco(tmp_path):
-    output = tmp_path / "output"
-    resumen = convertir_documento(extracto_bbva(tmp_path / "extracto.xlsx"), "BBVA", False, "2026-09", output)
-    assert resumen["filas"] == 1 and resumen["suma"] == -150000
-    resumen = convertir_documento(libro_erp(tmp_path / "libro.xlsx"), "BBVA", True, "2026-09", output)
-    assert resumen["filas"] == 1 and resumen["ignoradas"] == 1
-    salida = output / "2026-09" / "BBVA"
-    assert sorted(ruta.name for ruta in salida.iterdir()) == \
-        ["banco_bbva - extracto.xlsx", "sistema_finnegans - libro.xlsx"]
-    libro = openpyxl.load_workbook(salida / "sistema_finnegans - libro.xlsx")
-    assert libro.sheetnames == ["Movimientos"]
-    assert list(libro.active.iter_rows(values_only=True))[1][1:] == ("Orden de pago", None, -1500)
+def test_devuelve_el_dataframe_del_extracto_y_del_libro(tmp_path):
+    tabla = convertir_documento(extracto_bbva(tmp_path / "extracto.xlsx"), "BBVA", False)
+    assert list(tabla.columns) == COLUMNAS
+    assert tabla.iloc[0].to_dict() == {"Fecha": datetime(2026, 9, 30), "Código": "319", "Descripción": "",
+                                       "Monto en centavos": -150000, "Clase": "Movimiento"}
+    # El libro del ERP: el Saldo Inicial no sale y todo es "Movimiento".
+    tabla = convertir_documento(libro_erp(tmp_path / "libro.xlsx"), "BBVA", True)
+    assert list(tabla["Código"]) == ["Orden de pago"]
+    assert list(tabla["Monto en centavos"]) == [-150000]
+    assert list(tabla["Clase"]) == ["Movimiento"]
+
+
+def test_marca_los_gastos_bancarios_sin_sacarlos(tmp_path):
+    # Dos filas: una transferencia (319) y un gasto bancario (236).
+    ruta = guardar(tmp_path / "extracto.xlsx", [ENCABEZADO_BBVA,
+        ["30-09-2026", "30-09-2026", "TRANSFERENCI", "319", "", "OF", "", -1500, ""],
+        ["30-09-2026", "30-09-2026", "IMPUESTO LEY", "236", "", "OF", "", -9, ""]])
+    tabla = convertir_documento(ruta, "BBVA", False)
+    assert list(tabla["Clase"]) == ["Movimiento", "Gasto bancario"]
+    assert tabla["Monto en centavos"].sum() == -150900  # el total cierra entero, con los gastos
+
+
+def test_los_tipos_de_las_columnas_son_fijos(tmp_path):
+    tabla = convertir_documento(extracto_bbva(tmp_path / "extracto.xlsx"), "BBVA", False)
+    assert str(tabla["Fecha"].dtype) == "datetime64[ns]"
+    assert str(tabla["Monto en centavos"].dtype) == "int64"
+
+
+def test_no_guarda_ningun_archivo(tmp_path):
+    ruta = extracto_bbva(tmp_path / "extracto.xlsx")
+    convertir_documento(ruta, "BBVA", False)
+    assert list(tmp_path.iterdir()) == [ruta]
 
 
 def test_frena_si_el_banco_no_esta_configurado(tmp_path):
     with pytest.raises(ValueError, match='"Macro" no está en la configuración'):
-        convertir_documento(extracto_bbva(tmp_path / "a.xlsx"), "Macro", False, "2026-09", tmp_path)
+        convertir_documento(extracto_bbva(tmp_path / "a.xlsx"), "Macro", False)
 
 
 def test_frena_si_el_extracto_es_de_otro_banco(tmp_path):
     ruta = guardar(tmp_path / "galicia.xlsx", [ENCABEZADO_GALICIA])
     with pytest.raises(ValueError, match="no es un extracto de BBVA"):
-        convertir_documento(ruta, "BBVA", False, "2026-09", tmp_path)
+        convertir_documento(ruta, "BBVA", False)
 
 
 def test_frena_si_se_confunde_extracto_y_libro(tmp_path):
     with pytest.raises(ValueError, match="no es el libro del ERP"):
-        convertir_documento(extracto_bbva(tmp_path / "a.xlsx"), "BBVA", True, "2026-09", tmp_path)
+        convertir_documento(extracto_bbva(tmp_path / "a.xlsx"), "BBVA", True)
     with pytest.raises(ValueError, match="no es un extracto de BBVA"):
-        convertir_documento(libro_erp(tmp_path / "b.xlsx"), "BBVA", False, "2026-09", tmp_path)
+        convertir_documento(libro_erp(tmp_path / "b.xlsx"), "BBVA", False)
 
 
 def test_frena_si_el_archivo_no_se_puede_abrir(tmp_path):
     ruta = tmp_path / "roto.xlsx"
     ruta.write_text("no es un Excel")
     with pytest.raises(ValueError, match="no se pudo abrir como Excel"):
-        convertir_documento(ruta, "BBVA", False, "2026-09", tmp_path)
+        convertir_documento(ruta, "BBVA", False)
 
 
-def test_frena_si_el_mes_no_tiene_la_forma_correcta(tmp_path):
-    with pytest.raises(ValueError, match="AAAA-MM"):
-        convertir_documento(extracto_bbva(tmp_path / "a.xlsx"), "BBVA", False, "09-2026", tmp_path)
+def test_las_fechas_de_otro_mes_salen_tal_cual(tmp_path):
+    # Decidir qué hacer con ellas es de Conciliador, que sabe qué mes concilia.
+    tabla = convertir_documento(extracto_bbva(tmp_path / "a.xlsx", fecha="31-08-2026"), "BBVA", False)
+    assert list(tabla["Fecha"]) == [datetime(2026, 8, 31)]
 
 
-def test_si_falla_borra_el_resultado_viejo(tmp_path):
-    output = tmp_path / "output"
-    ruta = extracto_bbva(tmp_path / "extracto.xlsx")
-    convertir_documento(ruta, "BBVA", False, "2026-09", output)
-    # El extracto ahora trae una fecha que no se puede leer.
-    extracto_bbva(ruta, fecha="sin fecha")
-    with pytest.raises(ValueError, match="Se borró el resultado anterior: banco_bbva - extracto.xlsx"):
-        convertir_documento(ruta, "BBVA", False, "2026-09", output)
-    assert list((output / "2026-09" / "BBVA").iterdir()) == []
+def test_dice_que_columna_falta(tmp_path):
+    # El encabezado está en la fila 3 y le falta "Codigo".
+    sin_codigo = [columna for columna in ENCABEZADO_BBVA if columna != "Codigo"]
+    ruta = guardar(tmp_path / "a.xlsx", [["Empresa:", "EMPRESA DE PRUEBA"], [], sin_codigo])
+    with pytest.raises(ValueError, match="no es un extracto de BBVA. En la fila 3 faltan estas columnas: Codigo."):
+        convertir_documento(ruta, "BBVA", False)
 
 
-def test_avisa_fechas_de_otro_mes_sin_sacarlas(tmp_path):
-    output = tmp_path / "output"
-    resumen = convertir_documento(extracto_bbva(tmp_path / "a.xlsx", fecha="31-08-2026"),
-                                  "BBVA", False, "2026-09", output)
-    assert resumen["fuera_del_mes"] == {"2026-08": 1}
-    assert openpyxl.load_workbook(resumen["ruta_salida"]).active.max_row == 2
+def test_si_cambia_una_columna_que_no_se_usa_convierte_igual(tmp_path):
+    # "Oficina" pasa a llamarse "Sucursal" y "Fecha Valor" desaparece: el programa no las usa.
+    encabezado = ["Fecha", "Concepto", "Codigo", "Número Documento", "Sucursal", "Crédito", "Débito", "Detalle"]
+    ruta = guardar(tmp_path / "a.xlsx", [encabezado, ["30-09-2026", "X", "319", "", "OF", "", -1500, ""]])
+    assert list(convertir_documento(ruta, "BBVA", False)["Código"]) == ["319"]
 
 
-def test_nombre_de_salida_sin_la_extension_del_original(tmp_path):
-    assert ruta_salida(tmp_path, "banco_bbva", tmp_path / "banco X.xls").name == "banco_bbva - banco X.xlsx"
+def test_lista_todas_las_filas_con_errores(tmp_path):
+    ruta = guardar(tmp_path / "a.xlsx", [ENCABEZADO_BBVA,
+        ["2026/09/30", "", "X", "319", "", "OF", "", -1500, ""],   # fila 2: fecha mal escrita
+        ["30-09-2026", "", "X", "319", "", "OF", "", -1500, ""],   # fila 3: bien
+        ["30-09-2026", "", "X", "319", "", "OF", 100, -100, ""],   # fila 4: crédito y débito
+        ["30-09-2026", "", "X", 5, "", "OF", "", -1500, ""]])      # fila 5: Código como número
+    with pytest.raises(ValueError) as error:
+        convertir_documento(ruta, "BBVA", False)
+    mensaje = str(error.value)
+    assert mensaje.startswith("hay 3 filas con errores:")
+    assert "Fila 2: fecha" in mensaje and "Fila 4: tiene que tener crédito o débito" in mensaje
+    assert "Fila 5: el Código viene como número" in mensaje and "Fila 3" not in mensaje
 
 
-def test_cuenta_fechas_fuera_del_mes():
-    movimientos = [Movimiento(date(2026, 9, 1), "", "", 1), Movimiento(date(2026, 8, 31), "", "", 1),
-                   Movimiento(date(2026, 10, 1), "", "", 1), Movimiento(date(2026, 8, 30), "", "", 1)]
-    assert fechas_fuera_del_mes(movimientos, "2026-09") == {"2026-08": 2, "2026-10": 1}
+def test_con_muchos_errores_muestra_los_primeros_y_cuenta_el_resto(tmp_path):
+    filas_malas = [["sin fecha", "", "X", "319", "", "OF", "", -1500, ""]] * 25
+    ruta = guardar(tmp_path / "a.xlsx", [ENCABEZADO_BBVA] + filas_malas)
+    with pytest.raises(ValueError) as error:
+        convertir_documento(ruta, "BBVA", False)
+    mensaje = str(error.value)
+    assert mensaje.startswith("hay 25 filas con errores:")
+    assert mensaje.count("fecha que no se puede leer") == 20 and mensaje.endswith("… y 5 más.")

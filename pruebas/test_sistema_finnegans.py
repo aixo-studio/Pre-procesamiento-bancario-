@@ -5,12 +5,12 @@ import openpyxl
 import pytest
 
 from motor.armar import armar_movimientos
-from motor.configuracion import buscar_reglas_y_carpeta
-from motor.escribir import controlar
+from motor.configuracion import buscar_reglas, columnas_que_se_usan
+from motor.controlar import controlar
 from motor.leer import encontrar_tabla, leer_filas
 
 # Las reglas del ERP son las mismas para cualquier banco.
-reglas, _ = buscar_reglas_y_carpeta("BBVA", es_erp=True)
+reglas = buscar_reglas("BBVA", es_erp=True)
 
 ENCABEZADO = ["Año - mes", "Codigo cuenta", "Cuenta", "Fecha", "Comprobante", "Descripción",
               "Debe", "Haber", "Documento", "Dimensión valor", "Detalle", "Cotizacion",
@@ -39,7 +39,7 @@ def crear_libro(carpeta, filas_de_datos, encabezado=ENCABEZADO):
 
 def convertir(ruta):
     """Corre los pasos del motor sobre el archivo de prueba y devuelve movimientos y resumen."""
-    columnas, datos = encontrar_tabla(leer_filas(ruta), reglas["encabezados"], reglas["seguidas"])
+    columnas, datos = encontrar_tabla(leer_filas(ruta), columnas_que_se_usan(reglas), reglas["seguidas"])
     movimientos = armar_movimientos(columnas, datos, reglas)
     return movimientos, controlar(movimientos, columnas, datos, reglas)
 
