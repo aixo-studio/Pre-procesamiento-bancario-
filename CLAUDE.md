@@ -1,4 +1,4 @@
-# CLAUDE.md — Conciliación v3 (etapa 1: documentos a cuatro columnas)
+# CLAUDE.md — Conciliación v3 (etapa 1: preprocesamiento de documentos)
 
 Este archivo es para Claude. Define cómo trabaja Claude en este repo junto con
 Matias, de Aixo Studio: él es el usuario, aprueba cada cambio y hace los
@@ -7,21 +7,22 @@ commits y los push.
 ## Qué es esta etapa y dónde termina
 
 Un programa en Python, sin IA, que recibe un documento crudo (el extracto de
-un banco o el libro del sistema financiero) y devuelve un Excel con cuatro
-columnas: Fecha, Código, Descripción y Monto.
+un banco o el libro del sistema financiero) y lo devuelve limpio como un
+DataFrame de pandas: Fecha, Código, Descripción, Monto en centavos y Clase.
+No guarda ni borra ningún archivo.
 
-Es la etapa 1 de la conciliación bancaria. Termina cuando cada documento del
-mes quedó convertido en la carpeta de salida. El cruce entre banco y sistema
-NO va acá: es la etapa 2, en otro repo (en GitHub "Conciliador", carpeta local
-"conciliacion v4"), que arranca leyendo lo que deja este. Si un pedido es
-del cruce, frenar y avisar.
+Es la etapa 1 de la conciliación bancaria. Termina cuando devuelve el
+DataFrame de un documento. El cruce entre banco y sistema NO va acá: es la
+etapa 2, en otro repo (en GitHub "Conciliador", carpeta local "conciliacion
+v4"), que recibe los dos archivos de una cuenta y llama a este repo una vez
+por cada uno. Si un pedido es del cruce, frenar y avisar.
 
 Las carpetas locales y los repos de GitHub no se llaman igual:
 
 | Carpeta local     | Repo en GitHub                                             | Etapa                             |
 |-------------------|------------------------------------------------------------|-----------------------------------|
 | conciliacion v3   | https://github.com/aixo-studio/Pre-procesamiento-bancario- | 1 (este repo)                     |
-| conciliacion v4   | https://github.com/aixo-studio/Conciliador                 | 2 (lee lo que deja este)          |
+| conciliacion v4   | https://github.com/aixo-studio/Conciliador                 | 2 (llama a este)                  |
 
 ## Cómo se trabaja
 
@@ -29,10 +30,11 @@ Las carpetas locales y los repos de GitHub no se llaman igual:
   usuario: ahí lee, crea y edita los archivos. Nunca clona el repo ni trabaja
   sobre una copia (en la nube o en otro lugar). Si no tiene acceso a la
   carpeta local, frena y avisa.
-- Claude puede correr lo que solo verifica, sin cambiar nada: pytest y leer
-  archivos, para chequear su trabajo antes de pasarlo.
+- Claude puede correr lo que solo verifica, sin cambiar nada: pytest, leer
+  archivos y convertir archivos reales desde la terminal (solo lee y muestra
+  el resumen; no guarda nada), para chequear su trabajo antes de pasarlo.
 - Todo lo que genera, mueve o borra archivos fuera del código que Claude edita
-  (conversiones reales, crear o mover carpetas de datos, el .venv) lo corre el
+  (crear o mover carpetas de datos, el .venv, git stash o checkout) lo corre el
   usuario. Claude le pasa cada comando listo para copiar, con qué hace y qué
   tiene que mostrar en pantalla.
 - Los commits y los push los hace siempre el usuario. Claude le pasa los
@@ -84,46 +86,48 @@ Ahí manda la velocidad.
 
 ## Dónde están los datos
 
-Los datos viven fuera del repo, en una carpeta al lado de él:
+Los originales viven fuera del repo. Por costumbre, en una carpeta al lado:
 
-    Documents/
-      conciliacion v3/                  este repo
+    <carpeta que contiene el repo>/
+      conciliacion v3/                          este repo
       conciliacion resultados/v3/
-        input/<AAAA-MM>/<Banco>/        los crudos (los pone el usuario)
-        output/<AAAA-MM>/<Banco>/       lo que escribe este repo
+        input/<AAAA-MM>/                        los crudos (pueden estar en otro lado)
 
-En cada carpeta de banco del input tiene que haber exactamente dos archivos:
-el extracto de ese banco y el libro del sistema de esa cuenta. El programa
-nunca escribe en input ni modifica un original.
+Cada llamada convierte un archivo: recibe la ruta, el banco y si es el libro
+del ERP. Armar el par extracto + libro de cada cuenta es de quien llama
+(Conciliador). El programa nunca modifica un original y no escribe nada.
 
-Cómo se corre:
+Cómo se prueba un archivo desde la terminal (muestra el resumen, no guarda nada):
 
-    python convertir.py 2026-09                         todo el mes
-    python convertir.py 2026-09 BBVA                    un banco
-    python convertir.py 2026-09 BBVA "banco BBVA.xls"   un solo archivo
+    python convertir.py BBVA "ruta/extracto.xls"         el extracto del BBVA
+    python convertir.py BBVA "ruta/libro.xlsx" --erp     el libro del ERP de la cuenta BBVA
 
 ## Orden del repositorio
 
-- `convertir.py` es la puerta de entrada: recibe el mes (y opcionalmente el
-  banco o el archivo), convierte y muestra el resumen.
-- `motor/` tiene lo que es igual para todos los documentos: encontrar los
-  archivos y reconocer qué documento es cada uno, leer, armar las cuatro
-  columnas, controlar y escribir. No lleva nada propio de un banco.
-- `documentos/<documento>/` tiene todo lo propio de un documento, en dos
-  archivos: `README.md` (cómo viene y cómo se convierte, para personas) y
-  `reglas.py` (lo mismo, para el programa). Los dos dicen lo mismo; si no,
-  está mal.
-- Agregar un documento es agregar una carpeta en `documentos/`, su prueba y
-  su banco en la tabla de carpetas. Si para eso hay que tocar el resto del
-  `motor/`, frenar y avisar.
+- `convertir.py` es la puerta de entrada: la función que llama Conciliador
+  (`convertir_documento`) y la terminal (`main`). Recibe archivo, banco y si
+  es el ERP, y devuelve el DataFrame (la terminal muestra el resumen).
+- `configuracion.toml` tiene las reglas de cada documento: una sección por
+  banco (reglas del extracto y lista de gastos bancarios) y una para el ERP.
+- `motor/` tiene lo que es igual para todos los documentos: traer las reglas
+  del config, leer, armar las columnas, controlar y armar el DataFrame. No
+  lleva nada propio de un banco.
+- `documentos/<documento>/README.md` explica, para personas, lo que el config
+  no dice: de dónde sale el documento, cómo viene, por qué se eligió cada
+  columna, sus condiciones y un ejemplo. No repite el config (qué columna va
+  a cada lugar, la lista de gastos): eso vive solo en su sección, así no
+  quedan dos versiones que se contradigan.
+- Agregar un banco es agregar su sección en `configuracion.toml`, su README y
+  su prueba. Si para eso hay que tocar el `motor/`, frenar y avisar.
 - Cada archivo hace una sola cosa. Nada de archivos sueltos ni de código para
   necesidades que todavía no existen. Menos código es mejor.
 
 ## Verificación
 
-- `pytest` antes de cada commit. Cada regla de un documento tiene su prueba.
+- `python -m pytest` antes de cada commit (así usa el Python del `.venv` y no
+  el de conda). Cada regla de un documento tiene su prueba.
 - Al convertir archivos reales, mostrar el resumen de cada uno: filas,
-  filas ignoradas y suma contra el original.
+  filas ignoradas, suma y gastos bancarios.
 - Referencia fija: septiembre 2026 tiene que dar exactamente esto. Si un
   cambio la mueve, frenar y avisar antes de seguir.
 
@@ -132,6 +136,10 @@ Cómo se corre:
       Supervielle  extracto   172 filas      856.523,72 | sistema  65 filas   22.508.801,85
       (en cada libro del sistema se ignora 1 fila de "Saldo Inicial")
 
+      Gastos bancarios del extracto:
+      BBVA 836 filas −25.702.218,68 · Galicia 387 filas −58.477.591,43 · Supervielle 89 filas −986.203,99
+      (el Galicia, sin verificar con el DataFrame: falta su extracto original)
+
 - Lo que no se comprobó se informa como "sin verificar". Nunca presentar como
   comprobado algo que no se comprobó.
 - Al terminar: qué se cambió, qué se verificó y qué quedó pendiente.
@@ -139,27 +147,31 @@ Cómo se corre:
 ## Reglas del producto
 
 - Sin IA. Todo lo decide el código con reglas fijas.
-- Cada documento sale entero, en una sola hoja "Movimientos", con los gastos
-  bancarios incluidos. Separar gastos no es de esta etapa.
-- Qué columna del original va a cada columna de la salida lo define el
-  `reglas.py` de cada documento, y nada más. No se agregan columnas a la
-  Descripción.
-- El documento de cada archivo se reconoce por sus encabezados, nunca por el
-  nombre del archivo. Tiene que coincidir exactamente uno, y si es un extracto
-  de banco, tiene que ser el banco de su carpeta. Si no, ese archivo no se
-  convierte y se dice por qué.
-- En cada carpeta de banco tiene que haber exactamente un extracto de ese
-  banco y un libro del sistema. Si falta uno o hay de más, ese banco no se
-  convierte y se dice por qué.
-- Ninguna fila se pierde en silencio. La cantidad de filas y la suma de Monto
-  tienen que cerrar contra el original; si no cierran, no se genera el archivo
-  y se dice por qué. Los demás archivos del mes siguen.
-- Si un archivo no se puede convertir, se borra su salida anterior (si
-  existía) y el resumen lo dice. Así la etapa 2 nunca cruza un resultado viejo.
+- Cada documento sale entero, en un solo DataFrame, una fila por movimiento y
+  en el orden del original. Cada fila lleva su Clase: "Gasto bancario" o
+  "Movimiento". En el libro del ERP todas son "Movimiento".
+- Un gasto bancario se reconoce porque su Código está en la lista `gastos` de
+  su banco en `configuracion.toml`, comparado exacto. Cada banco tiene que
+  tener su lista, no vacía y sin repetidos; si no, el programa frena.
+- Qué columna del original va a cada columna del DataFrame lo define la
+  sección de cada documento en `configuracion.toml`, y nada más. No se agregan
+  columnas a la Descripción.
+- Quien llama dice qué es el archivo (el banco y si es el ERP), nunca el
+  nombre del archivo, y es responsable de que sea el correcto. Si el banco no
+  está en el config, el archivo no se convierte y se dice cuáles hay.
+- El archivo tiene que traer solo las columnas que se usan (las de las reglas
+  de su documento); las demás pueden cambiar. Si falta una, no se convierte y
+  se dice cuál y en qué fila.
+- Si hay filas que no se pueden leer, se informan todas juntas (fila y motivo)
+  en un solo error, y no se devuelve nada.
+- Ninguna fila se pierde en silencio. La cantidad de filas y la suma del
+  monto tienen que cerrar contra el original. Si no cierran, no se devuelve
+  nada: frena con un error que dice por qué.
+- No se guarda ni se borra ningún archivo: el resultado es el DataFrame.
 - El saldo inicial no es un movimiento: se saca siempre. Si un documento lo
-  trae, se indica en su `reglas.py` (IGNORAR) y el resumen lo informa.
-- Si un archivo trae filas con fecha fuera del mes de su carpeta, el resumen
-  avisa cuántas y de qué mes. No frena y no las saca.
+  trae, se indica en su sección del config (`ignorar`) y la terminal lo informa.
+- Las filas con fecha de otro mes salen tal cual. Controlarlas es de
+  Conciliador, que sabe qué mes concilia.
 - El archivo original nunca se modifica.
 - Los archivos reales de un cliente nunca se suben al repo. Las pruebas usan
   datos inventados. Ningún nombre de cliente en el código ni en la
@@ -167,46 +179,74 @@ Cómo se corre:
 
 ## La salida es el contrato con la etapa 2
 
-El repo de la etapa 2 (Conciliador, carpeta "conciliacion v4") lee estos
-archivos tal como salen. Cualquier cambio
-en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
+Conciliador (en GitHub "Conciliador", carpeta "conciliacion v4") llama a este
+repo y usa el DataFrame tal como sale. Cualquier cambio en el contrato rompe
+ese repo: antes de hacerlo, frenar y avisar, y cambiarlo en los dos repos en
+el mismo paso.
 
-- Carpeta: `conciliacion resultados/v3/output/<AAAA-MM>/<Banco>/`
-- En cada carpeta de banco del output hay un archivo del banco y uno del
-  sistema.
-- Nombre: `<documento> - <nombre del original sin extensión>.xlsx`, donde
-  `<documento>` es el nombre de su carpeta en `documentos/` (`banco_bbva`,
-  `banco_galicia`, `banco_supervielle`, `sistema_finnegans`). Así la etapa 2
-  sabe cuál es el banco y cuál el sistema.
-- Una sola hoja, "Movimientos".
-- Fila 1, el encabezado: Fecha · Código · Descripción · Monto, igual en los
-  cuatro documentos. Debajo, un movimiento por fila, en el orden del original.
-- El Código es el valor puro de la columna que identifica el tipo de
-  movimiento en cada documento, sin mezclar nada. La etapa 2 lo usa para
-  reconocer los gastos bancarios con una lista por banco:
+<!-- CONTRATO v3 → v4 · INICIO. Este bloque es igual, palabra por palabra, en el
+     CLAUDE.md de "conciliacion v3" y en el de "conciliacion v4". Si cambia,
+     cambia en los dos en el mismo paso, con la fecha nueva. -->
 
-      banco_bbva          Codigo               ej. 236
-      banco_galicia       Grupo de Conceptos   ej. 000901 - Impuestos
-      banco_supervielle   Concepto             ej. Impuesto Débitos y Créditos/DB
-      sistema_finnegans   Tipo de documento    ej. Orden de pago
+**Contrato del 2026-11-04.** Lo que devuelve la etapa 1 (carpeta "conciliacion
+v3", en GitHub Pre-procesamiento-bancario-) a la etapa 2 (carpeta
+"conciliacion v4", en GitHub Conciliador), que la llama.
 
-- Fecha: fecha real de Excel. Código y Descripción: texto (puede estar vacío).
-  El Código sale tal cual, con sus ceros adelante ("005", nunca 5); si en el
-  original viene como número, el archivo no se genera. Monto: número en pesos
-  con dos decimales; si es redondo (sin centavos) queda guardado como entero,
-  por ejemplo 250000 en vez de 250000.00, con el mismo valor. Crédito
+- La llamada: `convertir_documento(ruta_archivo, banco, es_erp)`, en
+  `convertir.py`. Una por archivo: v4 la llama dos veces por cuenta, con el
+  extracto del banco (`es_erp=False`) y con el libro del sistema
+  (`es_erp=True`), y en las dos pasa el mismo `banco` (BBVA, Galicia,
+  Supervielle, como en `configuracion.toml` de v3).
+- Si el archivo no se puede convertir (banco desconocido, faltan columnas,
+  filas que no se pueden leer, filas o suma que no cierran), frena con un
+  `ValueError` que dice por qué: qué columnas faltan y en qué fila, o todas
+  las filas con errores y su motivo. No devuelve nada a medias.
+- Lo que devuelve: un DataFrame de pandas, una fila por movimiento, en el
+  orden del original, con estas cinco columnas en este orden:
+
+      Fecha               fecha (datetime64)
+      Código              texto
+      Descripción         texto (puede estar vacío)
+      Monto en centavos   entero (int64)
+      Clase               texto: "Gasto bancario" o "Movimiento"
+
+- Código: el valor puro de la columna que identifica el tipo de movimiento en
+  cada documento, sin mezclar nada. Siempre texto, tal cual el original, con
+  sus ceros adelante ("005", nunca 5).
+
+      extracto BBVA         Codigo               ej. 236
+      extracto Galicia      Grupo de Conceptos   ej. 000901 - Impuestos
+      extracto Supervielle  Concepto             ej. Impuesto Débitos y Créditos/DB
+      libro del sistema     Tipo de documento    ej. Orden de pago
+
+- Monto en centavos: entero, sin decimales (−136550 es −1.365,50). Crédito
   positivo, débito negativo. En el sistema, Debe (entra al banco) es positivo
-  y Haber negativo.
-- El texto del Concepto del BBVA y del Galicia ya no sale (cambio del
-  2026-10-20, commit 306da11). Si la etapa 2 lo necesita, se pide un cambio de
+  y Haber negativo. Se compara y se suma tal cual, sin redondear.
+- Clase: "Gasto bancario" si el Código está en la lista `gastos` del banco en
+  `configuracion.toml` de v3 (comparación exacta); si no, "Movimiento". En el
+  libro del sistema, todas son "Movimiento". v4 cruza las filas
+  "Movimiento" y usa las "Gasto bancario" para el control final.
+- Las filas con fecha de otro mes salen tal cual: controlarlas es de v4.
+- El saldo inicial del libro del sistema no sale.
+- Lo que no llega: el texto del Concepto del BBVA y del Galicia, el número de
+  cheque del BBVA (Número Documento), las Leyendas Adicionales del Galicia y
+  el saldo del extracto. Si la etapa 2 necesita alguno, es un cambio de
   contrato.
-- Al leer el Monto, la etapa 2 lo pasa a centavos enteros redondeando, y
-  compara y suma en centavos: un decimal leído de un Excel puede venir con
-  un error mínimo (1500000.2499999 en vez de 1500000.25).
+
+Cambios:
+- 2026-11-04: v3 deja de escribir Excel en carpetas y devuelve un DataFrame.
+  El monto pasa a centavos enteros y los gastos se marcan con la columna
+  Clase en vez de ir a una hoja aparte. v3 ya no recibe el mes.
+- 2026-10-30 (APR-222 de v3): el extracto pasa a tener dos hojas; los gastos
+  bancarios salen separados en "Gastos bancarios".
+- 2026-10-20 (commit 306da11 de v3): la segunda columna pasa de Concepto a
+  Código.
+
+<!-- CONTRATO v3 → v4 · FIN -->
 
 ## Código
 
-- Python 3. Dependencias mínimas: `openpyxl`, `xlrd` y `pytest`.
+- Python 3. Dependencias mínimas: `openpyxl`, `xlrd`, `pandas` y `pytest`.
 - Nombres en español, completos y sin abreviaturas: funciones y variables en
   `snake_case`, clases en `PascalCase`, constantes en `MAYUSCULAS`.
 - Los montos se controlan en centavos enteros, para que la suma no falle por
@@ -224,6 +264,7 @@ en esta lista rompe ese repo: antes de hacerlo, frenar y avisar.
 
 - README.md: qué es, cómo se usa, el mapa de carpetas, el mapa del flujo y las
   decisiones.
-- documentos/<documento>/README.md: cómo viene ese documento y cómo se convierte.
+- documentos/<documento>/README.md: cómo viene ese documento y los porqués de
+  su conversión; lo que ya dice el config no se repite.
 - PENDIENTES.md: lo abierto, en orden de prioridad, y lo hecho con su fecha.
 - No dejar documentación desactualizada. Distinguir lo hecho de lo propuesto.

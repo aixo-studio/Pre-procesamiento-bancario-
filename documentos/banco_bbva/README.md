@@ -17,18 +17,16 @@ Llega como `.xls` (el formato viejo de Excel), con una sola hoja:
 
 ## Cómo se convierte
 
-| Salida      | Sale de          | Regla                                                  |
-|-------------|------------------|--------------------------------------------------------|
-| Fecha       | Fecha            | Viene como texto `30-09-2026`; se pasa a fecha real.   |
-| Código      | Codigo           | Tal cual, como texto y con sus ceros (`005`, `236`).   |
-| Descripción | Detalle          | Tal cual. Muchas veces viene vacía y queda vacía.      |
-| Monto       | Crédito y Débito | Crédito en positivo, débito en negativo.               |
+Qué columna va a cada lugar y la lista de gastos bancarios están en la
+sección `[bancos.BBVA]` de `configuracion.toml`. Acá va lo que el config no
+explica.
 
 **Por qué el Código sale de "Codigo" y no de "Concepto":** "Codigo" es un
 número corto que identifica el tipo de movimiento (por ejemplo `236` es el
-IVA) y alcanza solo para reconocer los gastos bancarios en la etapa 2. El
+IVA) y alcanza solo para reconocer los gastos bancarios. El
 "Concepto" mezcla el tipo con otros datos (`TRANSFERENCI 20111111112` trae el
-CUIT), así que no sirve para comparar contra una lista.
+CUIT), así que no sirve para comparar contra una lista. La lista de gastos la
+armó la persona que concilia.
 
 ## Condiciones
 
@@ -55,7 +53,7 @@ Entra:
 
 Sale:
 
-| Fecha      | Código | Descripción      | Monto        |
-|------------|--------|------------------|--------------|
-| 30/09/2026 | 005    |                  | −150.000,00  |
-| 29/09/2026 | 319    | CTE 000011110001 | 250.000,00   |
+| Fecha      | Código | Descripción      | Monto en centavos | Clase      |
+|------------|--------|------------------|-------------------|------------|
+| 30/09/2026 | 005    |                  | −15000000         | Movimiento |
+| 29/09/2026 | 319    | CTE 000011110001 | 25000000          | Movimiento |
